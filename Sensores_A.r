@@ -119,18 +119,18 @@ TempTot # Temperaturas concatenadas
 #########################
 
 # Gerando x para Matrix
-#x <- matrix(nrow=1,ncol=102)
-#for(i in 1:ncol(x)) { 
-#  x[1,i] = matrix(c(locsTot[i,1]))
-#}
-x = locsTot[,1]
+x <- matrix(nrow=1,ncol=102)
+for(i in 1:ncol(x)) { 
+  x[1,i] = matrix(c(locsTot[i,1]))
+}
+#x = locsTot[,1]
 
 # Gerando y para Matrix
-#y <- matrix(nrow=1,ncol=102)
-#for(i in 1:ncol(y)) { 
-#  y[1,i] = matrix(c(locsTot[i,2]))
-#}
-y = locsTot[,2]
+y <- matrix(nrow=1,ncol=102)
+for(i in 1:ncol(y)) { 
+  y[1,i] = matrix(c(locsTot[i,2]))
+}
+#y = locsTot[,2]
 
 z = TempTot #z
 
@@ -153,5 +153,6 @@ scatterplot3d(locsTot[,1:3],
 #        main="Gaussian Kernal with persp3D()")
 
 #kd <- with(MASS::geyser, MASS::kde2d(locsTot[,1], locsTot[,2], n = 102))
-#p <- plot_ly(x = locsTot[,1], y = locsTot[,2], z = TempTot) %>% add_surface(TempTot)
-#p <- plot_ly(x = locsTot[,1], y = locsTot[,2], z = TempTot) %>% add_surface()
+
+# SURFACE
+p <- plot_ly(x = locsTot[,2], y = locsTot[,1], z = TempTot) %>% add_surface(z*2)
