@@ -119,20 +119,20 @@ TempTot # Temperaturas concatenadas
 #########################
 
 # Gerando x para Matrix
-x <- matrix(nrow=1,ncol=102)
-for(i in 1:ncol(x)) { 
-  x[1,i] = matrix(c(locsTot[i,1]))
-}
+# x <- matrix(nrow=1,ncol=102)
+#for(i in 1:ncol(x)) { 
+#  x[1,i] = matrix(c(locsTot[i,1]))
+#}
 #x = locsTot[,1]
 
 # Gerando y para Matrix
-y <- matrix(nrow=1,ncol=102)
-for(i in 1:ncol(y)) { 
-  y[1,i] = matrix(c(locsTot[i,2]))
-}
+#y <- matrix(nrow=1,ncol=102)
+#for(i in 1:ncol(y)) { 
+#  y[1,i] = matrix(c(locsTot[i,2]))
+#}
 #y = locsTot[,2]
 
-z = TempTot #z
+#z = TempTot #z
 
 scatterplot3d(locsTot[,1:3],
               main="3D Sensores - Disposição",
@@ -155,4 +155,39 @@ scatterplot3d(locsTot[,1:3],
 #kd <- with(MASS::geyser, MASS::kde2d(locsTot[,1], locsTot[,2], n = 102))
 
 # SURFACE
-p <- plot_ly(x = locsTot[,2], y = locsTot[,1], z = TempTot) %>% add_surface(z*2)
+#p <- plot_ly(x = locsTot[,2], y = locsTot[,1], z = TempTot) %>% add_surface(z*2)
+
+
+################
+# Novos testes #
+################
+
+# Originais
+n = 52
+x = locs[,1]
+y = locs[,2]
+z = dados[epoca,]
+z1 = dados[epoca:352,] # 52 após o 301
+
+locais = matrix(nrow=52,ncol=52) # t tem que ser algo 52X52
+for(i in 1:ncol(locais)) { 
+  locais[i,] = z
+}
+
+# Gerados
+x1 = pontos[,1]
+y1 = pontos[,2]
+z1 = result
+
+# Desenhando os pontos originais
+ponts = plot3d(x, y, z, type = "s", col = "red", size = 1, forceClipregion = TRUE, xlim=c(0,40),
+               ylim=c(0,32),
+               zlim=c(0,50))
+
+# Desenhando os pontos gerados
+#pontsG = plot3d(x1, y1, z1, type = "s", col = "black", size = 1, forceClipregion = TRUE, xlim=c(0,40),
+#                ylim=c(0,32),
+#                zlim=c(0,50))
+
+surface3d(x, y, locais, back = 'line', front = 'line', col = 'black', lwd = 1.0, alpha = 0.4)
+#axes3d()
