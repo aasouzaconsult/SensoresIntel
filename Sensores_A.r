@@ -40,7 +40,7 @@ gera_pontos = function(n){
 kernel_gauss = function(locs , x, sigma){
   
   m_x = t(replicate(52, x)) # x é o ponto
-
+  
   dst = (m_x - locs)^2
   dst = dst[,1]+dst[,2] # Distancia Euclidiana
   
@@ -180,6 +180,7 @@ y1 = pontos[,2]
 z1 = result
 
 # Desenhando os pontos originais
+library(rgl)
 ponts = plot3d(x, y, z, type = "s", col = "red", size = 1, forceClipregion = TRUE, xlim=c(0,40),
                ylim=c(0,32),
                zlim=c(0,50))
