@@ -14,6 +14,8 @@ converte = function(dados) {
 }
 
 # Importando os dados - ja convertendo
+# Usaremos os dados pré-processados, disponíveis em http://www.ulb.ac.be/di/labo/code/PCAgExpe.zip.
+
 dados = converte(read.table("C:/temp/subsfin.txt"))	
 locs = converte(read.table("C:/temp/mote_locs.txt")[,2:3]) # Posicionamento do sensor
 locs=locs[c(-5,-15),]
