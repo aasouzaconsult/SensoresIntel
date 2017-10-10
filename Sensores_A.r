@@ -115,7 +115,6 @@ for(i in 53:ncol(TempTot)) {
 
 TempTot # Temperaturas concatenadas
 
-
 #########################
 ### PLOTAR SUPERFICIE ###
 #########################
@@ -136,29 +135,12 @@ TempTot # Temperaturas concatenadas
 
 #z = TempTot #z
 
+library(scatterplot3d)
 scatterplot3d(locsTot[,1:3],
               main="3D Sensores - Disposição",
               xlab = "x",
               ylab = "y",
               zlab = "z")
-
-#library(plotly)
-#kd <- with(MASS::geyser, MASS::kde2d(duration, waiting, n = 50))
-#p <- plot_ly(x = kd$x, y = kd$y, z = kd$z) %>% add_surface()
-#Desenho <- plot_ly(x = locsTot[,1], y = locsTot[,2], z = TempTot) %>% add_surface(z)
-
-# Required for using persp3D() function below.
-#library(plot3D)
-## We call persp3D function for same Gaussian kernal data generated above.
-#persp3D(locsTot[,1:3],theta=30, phi=50, axes=TRUE,scale=2, box=TRUE, nticks=5, 
-#        ticktype="detailed",xlab="X-value", ylab="Y-value", zlab="Z-value", 
-#        main="Gaussian Kernal with persp3D()")
-
-#kd <- with(MASS::geyser, MASS::kde2d(locsTot[,1], locsTot[,2], n = 102))
-
-# SURFACE
-#p <- plot_ly(x = locsTot[,2], y = locsTot[,1], z = TempTot) %>% add_surface(z*2)
-
 
 ################
 # Novos testes #
@@ -169,12 +151,6 @@ n = 52
 x = locs[,1]
 y = locs[,2]
 z = dados[epoca,]
-z1 = dados[epoca:352,] # 52 após o 301
-
-locais = matrix(nrow=52,ncol=52) # t tem que ser algo 52X52
-for(i in 1:ncol(locais)) { 
-  locais[i,] = z
-}
 
 # Gerados
 x1 = pontos[,1]
@@ -188,9 +164,16 @@ ponts = plot3d(x, y, z, type = "s", col = "red", size = 1, forceClipregion = TRU
                zlim=c(0,50))
 
 # Desenhando os pontos gerados
-#pontsG = plot3d(x1, y1, z1, type = "s", col = "black", size = 1, forceClipregion = TRUE, xlim=c(0,40),
-#                ylim=c(0,32),
-#                zlim=c(0,50))
+pontsG = plot3d(x1, y1, z1, type = "s", col = "black", size = 1, forceClipregion = TRUE, xlim=c(0,40),
+                ylim=c(0,32),
+                zlim=c(0,50))
+
+# Surperficie - Errada
+# Em teste
+locais = matrix(nrow=52,ncol=52) # t tem que ser algo 52X52
+for(i in 1:ncol(locais)) { 
+  locais[i,] = z
+}
 
 surface3d(x, y, locais, back = 'line', front = 'line', col = 'black', lwd = 1.0, alpha = 0.4)
 #axes3d()
