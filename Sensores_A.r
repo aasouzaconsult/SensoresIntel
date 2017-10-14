@@ -75,105 +75,54 @@ result
 # Concatenando as localizacoes e Temperatura #
 ##############################################
 
-locsTot <- matrix(nrow=102,ncol=4)
+x = c(locs[,1], pontos[,1]) # x
+y = c(locs[,2], pontos[,2]) # y
+tn = c(dados_epoca, result) # Temperatura
 
-# Localizacoes originais (locs)
-for(i in 1:nrow(locs)) { 
-  locsTot[i,] = matrix(c(locs[i,],dados[epoca,i],1)) # 1 Originais
-}
+# Matriz com todos os dados
+coord = matrix(0, ncol = 4, nrow=102) # Matriz de Zeros 102X4
+coord[1:52,4]   = 1           # Originais 
+coord[53:102,4] = 2           # 50 pontos - Previstos
+coord[1:52,1]   = locs[,1]    # x dos dados originais
+coord[1:52,2]   = locs[,2]    # y dos dados originais
+coord[1:52,3]   = dados_epoca # temperaturas originais
+coord[53:102,1] = pontos[,1]  # x dos 50 pontos - Previstos
+coord[53:102,2] = pontos[,2]  # y dos 50 pontos - Previstos
+coord[53:102,3] = result      # temperaturas previstas
 
-#localizacoes geradas (pontos)
-j = 1
-for(i in 53:nrow(locsTot)) {
-  locsTot[i,] = matrix(c(pontos[j,],result[j],2)) # 2 Resultados
-  j = j+1
-}
-
-locsTot # Localizações concatenadas + Temperatura
-locsTot[,1:3] # Sem identificacao
-
-################################
-# Concatenando as temperaturas #
-################################
-
-TempTot <- matrix(nrow=1,ncol=102)
-
-dados[epoca,52]
-
-# Temperaturas originais (dados)
-for(i in 1:ncol(dados)) { 
-  TempTot[i] = matrix(c(dados[epoca,i]))
-}
-
-# Temperaturas geradas (result)
-j = 1
-i = 53
-for(i in 53:ncol(TempTot)) {
-  TempTot[i] = matrix(c(result[j]))
-  j = j+1
-}
-
-TempTot # Temperaturas concatenadas
-
-#########################
-### PLOTAR SUPERFICIE ###
-#########################
-
-# Gerando x para Matrix
-# x <- matrix(nrow=1,ncol=102)
-#for(i in 1:ncol(x)) { 
-#  x[1,i] = matrix(c(locsTot[i,1]))
-#}
-#x = locsTot[,1]
-
-# Gerando y para Matrix
-#y <- matrix(nrow=1,ncol=102)
-#for(i in 1:ncol(y)) { 
-#  y[1,i] = matrix(c(locsTot[i,2]))
-#}
-#y = locsTot[,2]
-
-#z = TempTot #z
-
+# Visão fixa dos pontos
 library(scatterplot3d)
-scatterplot3d(locsTot[,1:3],
+scatterplot3d(coord[,1:3],
               main="3D Sensores - Disposição",
               xlab = "x",
               ylab = "y",
               zlab = "z")
 
-################
-# Novos testes #
-################
-
-# Originais
-n = 52
-x = locs[,1]
-y = locs[,2]
-z = dados[epoca,]
-
-# Gerados
-x1 = pontos[,1]
-y1 = pontos[,2]
-z1 = result
-
-# Desenhando os pontos originais
+library(akima)
 library(rgl)
-ponts = plot3d(x, y, z, type = "s", col = "red", size = 1, forceClipregion = TRUE, xlim=c(0,40),
-               ylim=c(0,32),
-               zlim=c(0,50))
+#Gerando a superfície
+shape = interp(locs[,1], locs[,2], dados_epoca,
+               xo=seq(min(locs[,1]), max(locs[,1]), length=600), 
+               yo=seq(min(locs[,2]), max(locs[,2]), length=600))
+
+# Visão 3D
+# Dados Originais
+plot3d(coord[1:52,1], coord[1:52,3], coord[1:52,2], ylim=c(0,40),
+       type = "s",
+       col = "black", 
+       size = 1,
+       xlab = "x",
+       ylab = "z",
+       zlab = "y")
 
 # Desenhando os pontos gerados
-pontsG = plot3d(x1, y1, z1, type = "s", col = "black", size = 1, forceClipregion = TRUE, xlim=c(0,40),
-                ylim=c(0,32),
-                zlim=c(0,50))
+plot3d(coord[53:102,1], coord[53:102,3], coord[53:102,2], ylim=c(0,40), 
+       type = "s", 
+       col = "red", 
+       size = 1,
+       xlab = "x",
+       ylab = "z",
+       zlab = "y")
 
-# Surperficie - Errada
-# Em teste
-locais = matrix(nrow=52,ncol=52) # t tem que ser algo 52X52
-for(i in 1:ncol(locais)) { 
-  locais[i,] = z
-}
-
-surface3d(x, y, locais, back = 'line', front = 'line', col = 'black', lwd = 1.0, alpha = 0.4)
-#axes3d()
+# Plotando a superficie
+rgl.surface(shape$x,shape$y,shape$z, color = "orange", alpha=c(0.5))
