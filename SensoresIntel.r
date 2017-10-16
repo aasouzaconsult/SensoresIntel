@@ -36,7 +36,7 @@ dados = converte(read.table("C:/temp/subsfin.txt"))
 locs = converte(read.table("C:/temp/mote_locs.txt")[,2:3]) # Posicionamento do sensor
 locs=locs[c(-5,-15),]
 
-# Função para calcular o parametro de abertura
+# Função para calcular o parâmetro de abertura
 estima_sigma = function(dados){
   sigma = c()
   g_t = dados[1:300,]
