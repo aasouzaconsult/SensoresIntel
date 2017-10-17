@@ -135,12 +135,16 @@ scatterplot3d(coord[,1:3],
               ylab = "y",
               zlab = "z")
 
-#Gerando a superfície
+#Gerando a superfície (Malha)
 library(akima)
 library(rgl)
 shape = interp(locs[,1], locs[,2], dados_epoca,
                xo=seq(min(locs[,1]), max(locs[,1]), length=600), 
                yo=seq(min(locs[,2]), max(locs[,2]), length=600))
+# Esse interp, ele recebe os locs, e as temperaturas, daí aplica pra uma 
+#sequencia de tamanho 600 entre o o max e min de cada coordenada (pra ficar 
+#dentro do laboratorio), aí gera os valores (600 triplas) com base nos que passei 
+#pra construir a malha ou superficie.
 
 # Visão 3D
 # Dados Originais (invertido y por z)
@@ -253,14 +257,16 @@ reg_lin = function(i_tr, dados_epoca, nlocs){
     lambda = 0.1	
     I = diag(ncol(x)) # 3x3
     
-    # Calculo do B (Beta)?
+    # Calculo do B (Beta -> w)? v-> w
     v = solve(t(x)%*%x + lambda*I)%*%t(x)%*%dados_epoca[i_tr] # dados_epoca[i_tr] - Temperaturas na época Testada # 3x1
     
+    # length(result), esse for vai preencher o vetor resultado...verificando se foi transmitido e copiando pro result, 
+    #e se não, estimando.
     for(i in 1:length(result)){
-      if(i %in% i_tr){
+      if(i %in% i_tr){ # Se tiver entre os "trasmitidos" na probabilidade (pega os dados da época)
         result[i] = dados_epoca[i]
       }
-      else{
+      else{ # Senão, estima.
         # y = XB + e?
         result[i] = (v[1,1] + v[2,1]*nlocs[i,1] + v[3,1]*nlocs[i,2])
       }
