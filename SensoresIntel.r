@@ -320,7 +320,7 @@ erromedio = function(result, dados){
   for(i in 1:nrow(result)){
    #a =      (dados[i,] - result[i,])^2
     a = sqrt((dados[i,] - result[i,])^2)
-    rmse_epoca[i] = sqrt(sum(a))/ncol(result)
+    rmse_epoca[i] = sum(a)/ncol(result)
   }
   return (rmse_epoca)
 }
@@ -343,7 +343,7 @@ max10 = function(re2_max_ep){
   
   ind = c()
   for(i in 1:10){
-    a = which.max(res2) # Índice do maior valor
+    a = which.max(res2) # índice do maior valor
     ind[i] = a
     res2[a] = 0
   }
@@ -352,6 +352,7 @@ max10 = function(re2_max_ep){
 
 # Função para reter os 10 NRMSEs mínimos
 min10 = function(re2_min_ep){
+  
   res2 = re2_min_ep
   
   ind = c()
@@ -519,7 +520,7 @@ lines(erromax(rs9, resultT), type="l", pch=22, lty=2, col="brown")
 title("Plotando os erros máximos")
 
 # Plotando os erros médios
- plot(erromedio(rs1, resultT), type="l", col="blue", ylim=c(0,2.5), xlab = "", ylab = "" )
+ plot(erromedio(rs1, resultT), type="l", col="blue", ylim=c(0,220), xlab = "", ylab = "" )
 lines(erromedio(rs2, resultT), type="l", pch=22, lty=2, col="yellow")
 lines(erromedio(rs3, resultT), type="l", pch=22, lty=2, col="black")
 lines(erromedio(rs4, resultT), type="l", pch=22, lty=2, col="red")
@@ -531,7 +532,7 @@ lines(erromedio(rs9, resultT), type="l", pch=22, lty=2, col="brown")
 title("Plotando os erros médios")
 
 # Plotando os erros mínimos
- plot(erromin(rs1, resultT), type="l", col="blue", ylim=c(0,0.6), xlab = "", ylab = "" )
+ plot(erromin(rs1, resultT), type="l", col="blue", ylim=c(0,3.5), xlab = "", ylab = "" )
 lines(erromin(rs2, resultT), type="l", pch=22, lty=2, col="yellow")
 lines(erromin(rs3, resultT), type="l", pch=22, lty=2, col="black")
 lines(erromin(rs4, resultT), type="l", pch=22, lty=2, col="red")
