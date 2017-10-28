@@ -69,7 +69,7 @@ kernel_gauss = function(locs , x, sigma){
   
   # Distancia Euclidiana
   dst = (m_x - locs)^2         # Distancia de cada ponto gerado para com os demais (originais)
- #dst = dst[,1]+dst[,2]        # Raiz quadrada
+  #dst = dst[,1]+dst[,2]        # Raiz quadrada
   dst = sqrt(dst[,1]+dst[,2])  # Raiz quadrada
   
   pt1 = 1/(2*pi*(sigma^2))
@@ -192,7 +192,7 @@ rgl.surface(shape$x,shape$y,shape$z, color = "orange", alpha=c(0.5))
 reg_lin = function(i_tr, dados_epoca, nlocs){
   result = array(0, dim = nrow(nlocs))       # array de nrow(nlocs) posições
   X = matrix(1, ncol = 3, nrow = nrow(locs)) # Matriz de 1´s (nrow(nlocs) linhas e 3 colunas)
- #X[,1] é o bias  
+  #X[,1] é o bias  
   X[,2] = locs[,1]
   X[,3] = locs[,2]    
   #...
@@ -318,7 +318,7 @@ erromedio = function(result, dados){
   re2_min_ep = c()
   re2_max_ep = c()
   for(i in 1:nrow(result)){
-   #a =      (dados[i,] - result[i,])^2
+    #a =      (dados[i,] - result[i,])^2
     a = sqrt((dados[i,] - result[i,])^2)
     rmse_epoca[i] = sum(a)/ncol(result)
   }
@@ -396,6 +396,9 @@ rs7 = trans_p(0.7,pontos)
 rs8 = trans_p(0.8,pontos)
 rs9 = trans_p(0.9,pontos)
 
+#############
+## TABELAS ##
+#############
 # Gerando dados para a Tabela Máximo
 max_matrix     = matrix(0, nrow = 9, ncol=10)
 max_matrix[1,] = min10(erromax(rs1, resultT))
@@ -471,41 +474,9 @@ min_matrix[8,] = max10(erromin(rs8, resultT))
 min_matrix[9,] = max10(erromin(rs9, resultT))
 View(min_matrix)
 
-# Média dos erros máximo
-mx = c()
-mx[1] = mean(erromax(rs1, resultT))
-mx[2] = mean(erromax(rs2, resultT))
-mx[3] = mean(erromax(rs3, resultT))
-mx[4] = mean(erromax(rs4, resultT))
-mx[5] = mean(erromax(rs5, resultT))
-mx[6] = mean(erromax(rs6, resultT))
-mx[7] = mean(erromax(rs7, resultT))
-mx[8] = mean(erromax(rs8, resultT))
-mx[9] = mean(erromax(rs9, resultT))
-
-# Média dos erros médios
-m = c()
-m[1] = mean(erromedio(rs1, resultT))
-m[2] = mean(erromedio(rs2, resultT))
-m[3] = mean(erromedio(rs3, resultT))
-m[4] = mean(erromedio(rs4, resultT))
-m[5] = mean(erromedio(rs5, resultT))
-m[6] = mean(erromedio(rs6, resultT))
-m[7] = mean(erromedio(rs7, resultT))
-m[8] = mean(erromedio(rs8, resultT))
-m[9] = mean(erromedio(rs9, resultT))
-
-# Mínimos dos erros médios
-n = c()
-n[1] = min(erromedio(rs1, resultT))
-n[2] = min(erromedio(rs2, resultT))
-n[3] = min(erromedio(rs3, resultT))
-n[4] = min(erromedio(rs4, resultT))
-n[5] = min(erromedio(rs5, resultT))
-n[6] = min(erromedio(rs6, resultT))
-n[7] = min(erromedio(rs7, resultT))
-n[8] = min(erromedio(rs8, resultT))
-n[9] = min(erromedio(rs9, resultT))
+####################
+## PLOTANDO ERROS ##
+####################
 
 # Plotando os erros máximos
  plot(erromax(rs1, resultT), type="l", col="blue", ylim=c(0,400), xlab = "", ylab = "" )
@@ -542,3 +513,58 @@ lines(erromin(rs7, resultT), type="l", pch=22, lty=2, col="orange")
 lines(erromin(rs8, resultT), type="l", pch=22, lty=2, col="gray")
 lines(erromin(rs9, resultT), type="l", pch=22, lty=2, col="brown")
 title("Plotando os erros mínimos")
+
+##############################
+## PLOTANDO MÉDIA DOS ERROS ##
+##############################
+
+# Média dos erros máximo
+mx = c()
+mx[1] = max(erromedio(rs1, resultT))
+mx[2] = max(erromedio(rs2, resultT))
+mx[3] = max(erromedio(rs3, resultT))
+mx[4] = max(erromedio(rs4, resultT))
+mx[5] = max(erromedio(rs5, resultT))
+mx[6] = max(erromedio(rs6, resultT))
+mx[7] = max(erromedio(rs7, resultT))
+mx[8] = max(erromedio(rs8, resultT))
+mx[9] = max(erromedio(rs9, resultT))
+plot(mx, type="l", col="blue", ylim=c(0,180), xlab = "", ylab = "" )
+title("Plotando os erros máximos")
+
+# Média dos erros médios
+m = c()
+m[1] = mean(erromedio(rs1, resultT))
+m[2] = mean(erromedio(rs2, resultT))
+m[3] = mean(erromedio(rs3, resultT))
+m[4] = mean(erromedio(rs4, resultT))
+m[5] = mean(erromedio(rs5, resultT))
+m[6] = mean(erromedio(rs6, resultT))
+m[7] = mean(erromedio(rs7, resultT))
+m[8] = mean(erromedio(rs8, resultT))
+m[9] = mean(erromedio(rs9, resultT))
+plot(m, type="l", col="blue", ylim=c(0,5), xlab = "", ylab = "" )
+title("Plotando os erros médios")
+
+# Média dos erros minimos
+n = c()
+n[1] = min(erromedio(rs1, resultT))
+n[2] = min(erromedio(rs2, resultT))
+n[3] = min(erromedio(rs3, resultT))
+n[4] = min(erromedio(rs4, resultT))
+n[5] = min(erromedio(rs5, resultT))
+n[6] = min(erromedio(rs6, resultT))
+n[7] = min(erromedio(rs7, resultT))
+n[8] = min(erromedio(rs8, resultT))
+n[9] = min(erromedio(rs9, resultT))
+plot(n, type="l", col="blue", ylim=c(0,0.5), xlab = "", ylab = "" )
+title("Plotando os erros mínimos")
+
+#####################
+## GRAFICOS TOTAIS ##
+#####################
+
+plot(mx, type="l", col="red"  , ylim=c(0,180), xlab = "", ylab = "" )
+lines(m, type="l", col="blue" , ylim=c(0,5)  , xlab = "", ylab = "" )
+lines(n, type="l", col="green", ylim=c(0,0.5), xlab = "", ylab = "" )
+title("Plotando os erros")
