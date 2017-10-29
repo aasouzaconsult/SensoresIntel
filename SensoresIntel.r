@@ -1,5 +1,5 @@
-options(max.print=8.5E5) #Numero de linhas - retorno
-options(error=recover)   #Debugar
+#options(max.print=8.5E5) #Numero de linhas - retorno
+#options(error=recover)   #Debugar
 
 ############################################################################################################
 # Sao 14400 epocas, cada epoca possue a medicao de temperatura de 52 sensores distribuidos no laboratorio. #
@@ -69,7 +69,7 @@ kernel_gauss = function(locs , x, sigma){
   
   # Distancia Euclidiana
   dst = (m_x - locs)^2         # Distancia de cada ponto gerado para com os demais (originais)
-  #dst = dst[,1]+dst[,2]        # Raiz quadrada
+ #dst = dst[,1]+dst[,2]        # Raiz quadrada
   dst = sqrt(dst[,1]+dst[,2])  # Raiz quadrada
   
   pt1 = 1/(2*pi*(sigma^2))
@@ -255,7 +255,7 @@ reg_lin = function(i_tr, dados_epoca, nlocs){
 # Quanto maior a probabilidade, maior o numero de sensores (o "melhor")
 
 trans_p = function(p, pontos){
-  #Matriz 14400 x n colunas(informado na linha anterior)
+  #matriz 14400 x n colunas(informado na linha anterior)
   result = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
   
   for(i in 1:nrow(dados)){
@@ -272,14 +272,13 @@ trans_p = function(p, pontos){
       }
     }
     
-    print(length(i_tr))
+    #print(length(i_tr))
     
     # Calcula a regressão Linear com base nos sensores escolhidos
     result[i,] = reg_lin(i_tr, dados[i,], pontos)
   }
   return(result)
 }
-
 result
 
 ## Testando a função acima (trans_p)
@@ -318,9 +317,10 @@ erromedio = function(result, dados){
   re2_min_ep = c()
   re2_max_ep = c()
   for(i in 1:nrow(result)){
-    #a =      (dados[i,] - result[i,])^2
-    a = sqrt((dados[i,] - result[i,])^2)
-    rmse_epoca[i] = sum(a)/ncol(result)
+    a = (dados[i,] - result[i,])^2
+    rmse_epoca[i] = sqrt(sum(a))/ncol(result)
+   #a = sqrt((dados[i,] - result[i,])^2)
+   #rmse_epoca[i] = sum(a)/ncol(result)
   }
   return (rmse_epoca)
 }
@@ -380,9 +380,8 @@ for(i in 1:nrow(resultT)){
     k = kernel_gauss(locs, pontos[j,], sigma)
     resultT[i,j] = (k%*%dados[i,])/sum(k)
   }
-  print(i)
+  #print(i)
 }
-
 summary(resultT)
 
 # Monta a regressão com probabilidade de 0.1 a 0.9 para as 50 temperaturas para cada época
@@ -395,6 +394,17 @@ rs6 = trans_p(0.6,pontos)
 rs7 = trans_p(0.7,pontos)
 rs8 = trans_p(0.8,pontos)
 rs9 = trans_p(0.9,pontos)
+
+# Numero de sensores (exemplo)
+# 0.1 - 3
+# 0.2 - 7
+# 0.3 - 19
+# 0.4 - 22
+# 0.5 - 26
+# 0.6 - 35
+# 0.7 - 36
+# 0.8 - 41
+# 0.9 - 46
 
 #############
 ## TABELAS ##
@@ -568,3 +578,143 @@ plot(mx, type="l", col="red"  , ylim=c(0,180), xlab = "", ylab = "" )
 lines(m, type="l", col="blue" , ylim=c(0,5)  , xlab = "", ylab = "" )
 lines(n, type="l", col="green", ylim=c(0,0.5), xlab = "", ylab = "" )
 title("Plotando os erros")
+
+###############################################################################
+# Repetir o item (b) utilizando regressão kernel gaussiano (Nadaraya-Watson). #
+###############################################################################
+
+############
+## ITEM C ##
+############
+
+# Funcao Kernel (Fórmula 2) - para o Nadaraya Watson
+kernel_gauss_nw = function(i_tr , dados_epoca, sigma, ponto){
+  
+  m_x = t(replicate(length(i_tr), ponto))
+  dst = (m_x - locs[i_tr,])^2
+  dst = sqrt(dst[,1]+dst[,2])
+  
+  pt1 = 1/(2*pi*(sigma[i_tr]^2))
+  pt2 = exp(-(dst/(2*(sigma[i_tr]^2))))
+  result = pt1*pt2
+  
+  return(result)
+}
+
+# Função - Nadaraya Watson (Formula 1)
+nadaraya = function(i_tr, dados_epoca, sigma, ponto){	
+  k = kernel_gauss_nw(i_tr, dados_epoca[i_tr], sigma, ponto)
+  return( (k%*%dados_epoca[i_tr])/sum(k) )
+}
+
+# Função para calcular a probabilidade (probabilidade de quem vai ou não transmitir)
+# Quanto maior a probabilidade, maior o numero de sensores (o "melhor")
+trans_p_nw = function(p, pontos){
+  sigma = estima_sigma(dados)
+  result = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
+  for(i in 1:nrow(dados)){
+    i_tr = c()
+    count = 0
+    for(j in 1:nrow(pontos)) {
+      if(runif(1)<p){
+        count = count + 1
+        i_tr[count] = j
+      }
+    }
+    if(length(i_tr)<=1){
+      i_tr = sample(1:52, 2)
+    }
+    print(i)
+    for(d in 1:nrow(pontos)){
+      result[i,d] = nadaraya(i_tr, dados[i,], sigma, pontos[d,])
+    }
+  }
+  return(result)
+}
+
+################
+## Executando ##
+################
+sigma  = estima_sigma(dados)
+pontos = gera_pontos(50) 
+
+# Chamada da função para estimar as temperaturas de cada época nos 50 pontos gerados
+resultT2 = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
+for(i in 1:nrow(resultT2)){
+  for(j in 1:ncol(resultT2)){
+    k = kernel_gauss(locs, pontos[j,], sigma)
+    resultT2[i,j] = (k%*%dados[i,])/sum(k)
+  }
+  #print(i)
+}
+
+# Monta a regressão kernel gaussiano com probabilidade de 0.1 a 0.9 para as 50 temperaturas para cada época
+# Nadaraya Watson
+rs1 = trans_p_nw(0.1,pontos)	
+rs2 = trans_p_nw(0.2,pontos)
+rs3 = trans_p_nw(0.3,pontos)
+rs4 = trans_p_nw(0.4,pontos)
+rs5 = trans_p_nw(0.5,pontos)
+rs6 = trans_p_nw(0.6,pontos)
+rs7 = trans_p_nw(0.7,pontos)
+rs8 = trans_p_nw(0.8,pontos)
+rs9 = trans_p_nw(0.9,pontos)
+
+# Vetor de média dos erros médios
+m = c()
+m[1] = mean(erromedio(rs1, resultT2))
+m[2] = mean(erromedio(rs2, resultT2))
+m[3] = mean(erromedio(rs3, resultT2))
+m[4] = mean(erromedio(rs4, resultT2))
+m[5] = mean(erromedio(rs5, resultT2))
+m[6] = mean(erromedio(rs6, resultT2))
+m[7] = mean(erromedio(rs7, resultT2))
+m[8] = mean(erromedio(rs8, resultT2))
+m[9] = mean(erromedio(rs9, resultT2))
+
+# Vetor de minimos dos erros médios
+n = c()
+n[1] = min(erromedio(rs1, resultT2))
+n[2] = min(erromedio(rs2, resultT2))
+n[3] = min(erromedio(rs3, resultT2))
+n[4] = min(erromedio(rs4, resultT2))
+n[5] = min(erromedio(rs5, resultT2))
+n[6] = min(erromedio(rs6, resultT2))
+n[7] = min(erromedio(rs7, resultT2))
+n[8] = min(erromedio(rs8, resultT2))
+n[9] = min(erromedio(rs9, resultT2))
+
+# Vetor de máximos dos erros médios
+o = c()
+o[1] = max(erromedio(rs1, resultT2))
+o[2] = max(erromedio(rs2, resultT2))
+o[3] = max(erromedio(rs3, resultT2))
+o[4] = max(erromedio(rs4, resultT2))
+o[5] = max(erromedio(rs5, resultT2))
+o[6] = max(erromedio(rs6, resultT2))
+o[7] = max(erromedio(rs7, resultT2))
+o[8] = max(erromedio(rs8, resultT2))
+o[9] = max(erromedio(rs9, resultT2))
+
+# Vetor de variancias dos erros médios
+v = c()
+v[1] = var(erromedio(rs1, resultT2))
+v[2] = var(erromedio(rs2, resultT2))
+v[3] = var(erromedio(rs3, resultT2))
+v[4] = var(erromedio(rs4, resultT2))
+v[5] = var(erromedio(rs5, resultT2))
+v[6] = var(erromedio(rs6, resultT2))
+v[7] = var(erromedio(rs7, resultT2))
+v[8] = var(erromedio(rs8, resultT2))
+v[9] = var(erromedio(rs9, resultT2))
+
+##########################
+# Plotando os resultados #
+##########################
+
+ plot(m  , type="l", col="blue", ylim=c(0,1.8)  , xlab = "Probabilidade", ylab = "Erros" )
+lines(n  , type="l", pch=10, lty=2, col="Orange", xlab = "", ylab = "" )
+lines(o  , type="l", pch=22, lty=5, col="red"   , xlab = "", ylab = "" )
+lines(m+v, type="l", pch=22, lty=2, col="black" , xlab = "", ylab = "" )
+lines(m-v, type="l", pch=22, lty=2, col="black" , xlab = "", ylab = "" )
+title("Erros médios")
