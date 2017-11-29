@@ -140,7 +140,7 @@ treino_rbf = function(y, n_neuronios, k){
 			#H[i,j+1] = exp(-(rowSums((locs[i,]-means)^2)/var%*%var))
 			sigma = diag(1,2)
 			diag(sigma) = diag(v[,,j])
-			print(sigma)
+		 #print(sigma)
 			H[i,j+1] = exp(-(t(locs[i,]-means[j,]) %*% solve(sigma) %*% (locs[i,]-means[j,])))
 		}
 	}
@@ -210,6 +210,68 @@ rs6 = trans_p(0.6,pontos)
 rs7 = trans_p(0.7,pontos)
 rs8 = trans_p(0.8,pontos)
 rs9 = trans_p(0.9,pontos)
+
+# Plotando os erros
+#############################################################
+## GRAFICOS TOTAIS - MEAN, MIN, MAX e VAR dos Erros Médios ##
+#############################################################
+# Vetor de media dos erros médios
+m = c()
+m[1] = mean(erromedio(rs1, resultT))
+m[2] = mean(erromedio(rs2, resultT))
+m[3] = mean(erromedio(rs3, resultT))
+m[4] = mean(erromedio(rs4, resultT))
+m[5] = mean(erromedio(rs5, resultT))
+m[6] = mean(erromedio(rs6, resultT))
+m[7] = mean(erromedio(rs7, resultT))
+m[8] = mean(erromedio(rs8, resultT))
+m[9] = mean(erromedio(rs9, resultT))
+
+# Vetor de minimos dos erros médios
+n = c()
+n[1] = min(erromedio(rs1, resultT))
+n[2] = min(erromedio(rs2, resultT))
+n[3] = min(erromedio(rs3, resultT))
+n[4] = min(erromedio(rs4, resultT))
+n[5] = min(erromedio(rs5, resultT))
+n[6] = min(erromedio(rs6, resultT))
+n[7] = min(erromedio(rs7, resultT))
+n[8] = min(erromedio(rs8, resultT))
+n[9] = min(erromedio(rs9, resultT))
+
+# Vetor de maximos dos erros médios
+o = c()
+o[1] = max(erromedio(rs1, resultT))
+o[2] = max(erromedio(rs2, resultT))
+o[3] = max(erromedio(rs3, resultT))
+o[4] = max(erromedio(rs4, resultT))
+o[5] = max(erromedio(rs5, resultT))
+o[6] = max(erromedio(rs6, resultT))
+o[7] = max(erromedio(rs7, resultT))
+o[8] = max(erromedio(rs8, resultT))
+o[9] = max(erromedio(rs9, resultT))
+
+# Vetor de variancias dos erros médios
+v = c()
+v[1] = var(erromedio(rs1, resultT))
+v[2] = var(erromedio(rs2, resultT))
+v[3] = var(erromedio(rs3, resultT))
+v[4] = var(erromedio(rs4, resultT))
+v[5] = var(erromedio(rs5, resultT))
+v[6] = var(erromedio(rs6, resultT))
+v[7] = var(erromedio(rs7, resultT))
+v[8] = var(erromedio(rs8, resultT))
+v[9] = var(erromedio(rs9, resultT))
+
+##########################
+# Plotando os resultados #
+##########################
+plot (m  , type="l", col="blue", ylim=c(0,0.7), xlab = "Probabilidade", ylab = "Erros" )
+lines(n  , type="l", pch=10, col="Orange", xlab = "", ylab = "" ) # Erro Minimo
+lines(o  , type="l", pch=22, col="red"   , xlab = "", ylab = "" ) # Erro Maximo
+lines(m+v, type="l", pch=22, lty=2, col="black" , xlab = "", ylab = "" ) # Erro Medio
+lines(m-v, type="l", pch=22, lty=2, col="black" , xlab = "", ylab = "" ) # Erro Medio
+title("MEAN, MIN, MAX e VAR dos Erros Médios (Item D - RBF)")
 
 # Observações
 # - ResultT - Valores estranhos na coluna 39
