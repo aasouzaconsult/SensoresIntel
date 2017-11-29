@@ -10,11 +10,11 @@
 
 # Função para converter em numérico
 converte = function(dados) {
- 	c<-NULL
- 	for (i in 1:ncol(dados))
-		c<-cbind(c,as.numeric(dados[,i]))
-
-	return (c)
+  c<-NULL
+  for (i in 1:ncol(dados))
+    c<-cbind(c,as.numeric(dados[,i]))
+  
+  return (c)
 }
 
 # Importando os dados - já convertendo
@@ -29,143 +29,163 @@ d_tr=dados[1,]
 # Y = dados[1,1:10]
 # X  = locs[1:10,]
 
+# NRMSE - Erro máximo
+erromax = function(result, dados){
+  re2_max_ep = c()
+  for(i in 1:nrow(result)){
+    a = (dados[i,] - result[i,])^2
+    re2_max_ep[i] = sqrt(max(a))
+  }
+  return (re2_max_ep)
+}
+
 # NRMSE - Erro médio
-erromedio = function(result, dados){
-	rmse_epoca = c()
-	re2_min_ep = c()
-	re2_max_ep = c()
-	for(i in 1:nrow(result)){
-		a = (dados[i,] - result[i,])^2
-		rmse_epoca[i] = sqrt(sum(a))/ncol(result)
-	}
-	return (rmse_epoca)
+erromed = function(result, dados){
+  re2_med_ep = c()
+  for(i in 1:nrow(result)){
+    a = (dados[i,] - result[i,])^2
+    re2_med_ep[i] = sqrt(mean(a))
+  }
+  return (re2_med_ep)
+}
+
+# NRMSE - Erro mínimo
+erromin = function(result, dados){
+  re2_min_ep = c()
+  for(i in 1:nrow(result)){
+    a = (dados[i,] - result[i,])^2
+    re2_min_ep[i] = sqrt(min(a))
+  }
+  return (re2_min_ep)
 }
 
 # Função para reter os 10 NRMSEs máximos
 max10 = function(re2_max_ep){
-	res2 = re2_max_ep
-
-	ind = c()
-	for(i in 1:10){
-		 a = which.max(res2) # índice do maior valor
-		 ind[i] = a
-		 res2[a] = 0
-	}
-	return(ind)
+  res2 = re2_max_ep
+  
+  ind = c()
+  for(i in 1:10){
+    a = which.max(res2) # índice do maior valor
+    ind[i] = a
+    res2[a] = 0
+  }
+  return(ind)
 }
 
 # Função para reter os 10 NRMSEs mínimos
 min10 = function(re2_min_ep){
-	res2 = re2_min_ep
-
-	ind = c()
-	for(i in 1:10){
-		 #a = which(mm == min(re2_min_ep), arr.ind = TRUE)
-		 a = which.min(res2)
-		 ind[i] = a
-		 res2[a] = 1000
-	}
-	return(ind)
+  res2 = re2_min_ep
+  
+  ind = c()
+  for(i in 1:10){
+    #a = which(mm == min(re2_min_ep), arr.ind = TRUE)
+    a = which.min(res2)
+    ind[i] = a
+    res2[a] = 1000
+  }
+  return(ind)
 }
 
 # Função para calcular a probabilidade (probabilidade de quem vai ou não transmitir)
 # Quanto maior a probabilidade, maior o numero de sensores que irão transmitir ("melhor")
 
 trans_p = function(p, pontos){
-	d_tr = dados[1,] # Primeira linha das temperaturas (base)
-	
-	result = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
-	#matriz 14400 x 50 colunas(pontos gerados)
-
+  d_tr = dados[1,] # Primeira linha das temperaturas (base)
+  
+  result = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
+  #matriz 14400 x 50 colunas(pontos gerados)
+  
   # Treinando o y
-	ytreino = dados * 0
-	for(i in 1:nrow(dados)){
-		for (j in 1:nrow(pontos)) {
-			if(runif(1)<p){                # Se o ponto for escolhido (será transmitido)
-				d_tr[j] = dados[i,j]         # Atualiza os dados base (d_tr)
-			}
-		}
-		ytreino[i,]	= d_tr
-	}
-
-	k = kmeans(locs, 10)               # K-Means, com k = 10
-
-	w = treino_rbf(ytreino, 10, k)     # Treinando
-
-	a = teste_rbf(pontos, k, 10, w)    # Testando com base nos pontos gerados
-
-	return(a)
+  ytreino = dados * 0
+  ytreino[1,] = d_tr
+  
+  for(i in 2:nrow(dados)){
+    for (j in 1:nrow(locs)) {
+      if(runif(1)<p){                # Se o ponto for escolhido (será transmitido)
+        d_tr[j] = dados[i,j]         # Atualiza os dados base (d_tr)
+      }
+    }
+    ytreino[i,]	= d_tr
+  }
+  
+  k = kmeans(locs, 10)               # K-Means, com k = 10
+  
+  w = treino_rbf(ytreino, 10, k)     # Treinando
+  
+  a = teste_rbf(pontos, k, 10, w)    # Testando com base nos pontos gerados
+  
+  return(a)
 }
 
 # Teste da RBF
 teste_rbf = function(pontos, k, n_neuronios, w){
-	print("AH")
-	H        = matrix(1, nrow=nrow(pontos), ncol = n_neuronios+1) # 50X11 - 1 Bias
-	means    = k$centers
-	clusters = k$cluster
-	v = array(0, c(2,2, n_neuronios))
-	for(i in 1:n_neuronios){
-		group = which(clusters %in% i)
-		v[,,i] = var(locs[group,])	
-	}
-
-	for(i in 1:nrow(pontos)){
-		for(j in 1:n_neuronios){
-			sigma = diag(1,2)
-			diag(sigma) = diag(v[,,j])
-			#H[i,j+1] = exp(-(rowSums((locs[i,]-means)^2)/var%*%var))
-			H[i,j+1] = exp(-(t(pontos[i,]-means[j,]) %*% solve(sigma) %*% (pontos[i,]-means[j,])))
-		}
-	}
-	# yT
-	return(t(H%*%w))
+  print("AH")
+  H        = matrix(1, nrow=nrow(pontos), ncol = n_neuronios+1) # 50X11 - 1 Bias
+  means    = k$centers
+  clusters = k$cluster
+  v = array(0, c(2,2, n_neuronios))
+  for(i in 1:n_neuronios){
+    group = which(clusters %in% i) # Unir os do mesmo grupo
+    v[,,i] = var(locs[group,])	   # variancia do grupo
+  }
+  
+  for(i in 1:nrow(pontos)){
+    for(j in 1:n_neuronios){
+      sigma = diag(1,2)
+      diag(sigma) = diag(v[,,j])
+      #H[i,j+1] = exp(-(rowSums((locs[i,]-means)^2)/var%*%var))
+      H[i,j+1] = exp(-(t(pontos[i,]-means[j,]) %*% solve(sigma) %*% (pontos[i,]-means[j,])))
+    }
+  }
+  # yT
+  return(t(H%*%w))
 }
 
 # Treinamento da RBF
 treino_rbf = function(y, n_neuronios, k){	
-	H        = matrix(1, nrow=nrow(locs), ncol = n_neuronios+1) # Matriz de 1 - 52x11 (1 - Bias)
-	means    = k$centers
-	clusters = k$cluster
-	
-	# ???
-	v = array(0, c(2,2, n_neuronios))
-	for(i in 1:n_neuronios){
-		group = which(clusters %in% i)
-		v[,,i] = var(locs[group,])	
-	}
+  H        = matrix(1, nrow=nrow(locs), ncol = n_neuronios+1) # Matriz de 1 - 52x11 (1 - Bias)
+  means    = k$centers
+  clusters = k$cluster
 
-	# H
-	for(i in 1:nrow(locs)){
-		for(j in 1:n_neuronios){
-			#H[i,j+1] = exp(-(rowSums((locs[i,]-means)^2)/var%*%var))
-			sigma = diag(1,2)
-			diag(sigma) = diag(v[,,j])
-		 #print(sigma)
-			H[i,j+1] = exp(-(t(locs[i,]-means[j,]) %*% solve(sigma) %*% (locs[i,]-means[j,])))
-		}
-	}
+ # Variancia dos grupos  
+  v = array(0, c(2,2, n_neuronios))
+  for(i in 1:n_neuronios){
+    group = which(clusters %in% i)
+    v[,,i] = var(locs[group,])	
+  }
   
-	# W
-	return(MASS::ginv(t(H)%*%H)%*%t(H)%*%t(y)) # ???
+  # H
+  for(i in 1:nrow(locs)){
+    for(j in 1:n_neuronios){
+      #H[i,j+1] = exp(-(rowSums((locs[i,]-means)^2)/var%*%var))
+      sigma = diag(1,2)
+      diag(sigma) = diag(v[,,j])
+      #print(sigma)
+      H[i,j+1] = exp(-(t(locs[i,]-means[j,]) %*% solve(sigma) %*% (locs[i,]-means[j,])))
+    }
+  }
+  
+  # W
+  return(MASS::ginv(t(H)%*%H)%*%t(H)%*%t(y)) # 
 }
 
 # Gerar pontos (na area) para validacao
 gera_pontos = function(n){
-	pontos = matrix(0, nrow = n, ncol=2) # Cria matriz de 0 com N linhas e 2 colunas
-# Gera n pontos entre o mínimo e o máximo de x(locs[,1]) e de y (locs[,2])
-	pontos[,1] = sample(min(locs[,1]):max(locs[,1]), n, replace = TRUE) 
-	pontos[,2] = sample(min(locs[,2]):max(locs[,2]), n, replace = TRUE) 	
-	return (pontos)
+  pontos = matrix(0, nrow = n, ncol=2) # Cria matriz de 0 com N linhas e 2 colunas
+  # Gera n pontos entre o mínimo e o máximo de x(locs[,1]) e de y (locs[,2])
+  pontos[,1] = sample(min(locs[,1]):max(locs[,1]), n, replace = TRUE) 
+  pontos[,2] = sample(min(locs[,2]):max(locs[,2]), n, replace = TRUE) 	
+  return (pontos)
 }
 
 # Função para calcular o parâmetro de abertura com base nas 300 primeiras épocas
 estima_sigma = function(dados){
-	sigma = c()
-	g_t = dados[1:300,]
-	for(i in 1:ncol(dados)){
-		sigma[i] = sd(g_t[,i]) # Desvio Padrão para cada um dos 52 sensores (sd(dados[,1]))
-	}
-	return (sigma)
+  sigma = c()
+  g_t = dados[1:300,]
+  for(i in 1:ncol(dados)){
+    sigma[i] = sd(g_t[,i]) # Desvio Padrão para cada um dos 52 sensores (sd(dados[,1]))
+  }
+  return (sigma)
 }
 
 ############
@@ -176,28 +196,28 @@ pontos = gera_pontos(50)
 
 # Funcao Kernel (Fórmula 2)
 kernel_gauss_gt = function(locs , x, sigma){
-# transposto da repetição de cada um dos pontos gerados (Matriz - 52X2)
-	m_x = t(replicate(52, x))   # x é cada um dos pontos gerados
-
-# Distancia Euclidiana (eleva ao quadrado e depois tira a raiz - tirar os negativos)
-	dst = (m_x - locs)^2        # Distancia de cada ponto gerado para os originais (52)
-	dst = sqrt(dst[,1]+dst[,2]) # Raiz quadrada
-
-	pt1 = 1/(2*pi*(sigma^2))
-	pt2 = exp(-(dst/(2*(sigma^2))))
-	result = pt1*pt2
-		
-	return(result)
+  # transposto da repetição de cada um dos pontos gerados (Matriz - 52X2)
+  m_x = t(replicate(52, x))   # x é cada um dos pontos gerados
+  
+  # Distancia Euclidiana (eleva ao quadrado e depois tira a raiz - tirar os negativos)
+  dst = (m_x - locs)^2        # Distancia de cada ponto gerado para os originais (52)
+  dst = sqrt(dst[,1]+dst[,2]) # Raiz quadrada
+  
+  pt1 = 1/(2*pi*(sigma^2))
+  pt2 = exp(-(dst/(2*(sigma^2))))
+  result = pt1*pt2
+  
+  return(result)
 }
 
 # Chamada da função Kernel - para estimar as temperaturas nos 50 pontos gerados (ground truth)
 resultT = matrix(0, nrow = nrow(dados), ncol = nrow(pontos)) # 14400 X 50
 for(i in 1:nrow(resultT)){
-	for(j in 1:ncol(resultT)){
-		k = kernel_gauss_gt(locs, pontos[j,], sigma)  # Distancia Euclidiana
-		resultT[i,j] = (k%*%dados[i,])/sum(k)
-	}
-	print(i)
+  for(j in 1:ncol(resultT)){
+    k = kernel_gauss_gt(locs, pontos[j,], sigma)  # Distancia Euclidiana
+    resultT[i,j] = (k%*%dados[i,])/sum(k)
+  }
+  print(i)
 }
 
 # Monta a RBF com probabilidade de 0.1 a 0.9 para as 50 temperaturas para cada época
@@ -227,29 +247,29 @@ m[7] = mean(erromedio(rs7, resultT))
 m[8] = mean(erromedio(rs8, resultT))
 m[9] = mean(erromedio(rs9, resultT))
 
-# Vetor de minimos dos erros médios
+# Vetor de minimos dos erros minimos
 n = c()
-n[1] = min(erromedio(rs1, resultT))
-n[2] = min(erromedio(rs2, resultT))
-n[3] = min(erromedio(rs3, resultT))
-n[4] = min(erromedio(rs4, resultT))
-n[5] = min(erromedio(rs5, resultT))
-n[6] = min(erromedio(rs6, resultT))
-n[7] = min(erromedio(rs7, resultT))
-n[8] = min(erromedio(rs8, resultT))
-n[9] = min(erromedio(rs9, resultT))
+n[1] = min(erromin(rs1, resultT))
+n[2] = min(erromin(rs2, resultT))
+n[3] = min(erromin(rs3, resultT))
+n[4] = min(erromin(rs4, resultT))
+n[5] = min(erromin(rs5, resultT))
+n[6] = min(erromin(rs6, resultT))
+n[7] = min(erromin(rs7, resultT))
+n[8] = min(erromin(rs8, resultT))
+n[9] = min(erromin(rs9, resultT))
 
 # Vetor de maximos dos erros médios
 o = c()
-o[1] = max(erromedio(rs1, resultT))
-o[2] = max(erromedio(rs2, resultT))
-o[3] = max(erromedio(rs3, resultT))
-o[4] = max(erromedio(rs4, resultT))
-o[5] = max(erromedio(rs5, resultT))
-o[6] = max(erromedio(rs6, resultT))
-o[7] = max(erromedio(rs7, resultT))
-o[8] = max(erromedio(rs8, resultT))
-o[9] = max(erromedio(rs9, resultT))
+o[1] = max(erromax(rs1, resultT))
+o[2] = max(erromax(rs2, resultT))
+o[3] = max(erromax(rs3, resultT))
+o[4] = max(erromax(rs4, resultT))
+o[5] = max(erromax(rs5, resultT))
+o[6] = max(erromax(rs6, resultT))
+o[7] = max(erromax(rs7, resultT))
+o[8] = max(erromax(rs8, resultT))
+o[9] = max(erromax(rs9, resultT))
 
 # Vetor de variancias dos erros médios
 v = c()
@@ -266,12 +286,36 @@ v[9] = var(erromedio(rs9, resultT))
 ##########################
 # Plotando os resultados #
 ##########################
-plot (m  , type="l", col="blue", ylim=c(0,0.7), xlab = "Probabilidade", ylab = "Erros" )
+plot (m  , type="l", col="blue", ylim=c(0,24), xlab = "Probabilidade", ylab = "Erros" )
 lines(n  , type="l", pch=10, col="Orange", xlab = "", ylab = "" ) # Erro Minimo
 lines(o  , type="l", pch=22, col="red"   , xlab = "", ylab = "" ) # Erro Maximo
 lines(m+v, type="l", pch=22, lty=2, col="black" , xlab = "", ylab = "" ) # Erro Medio
 lines(m-v, type="l", pch=22, lty=2, col="black" , xlab = "", ylab = "" ) # Erro Medio
 title("MEAN, MIN, MAX e VAR dos Erros Médios (Item D - RBF)")
 
+############
+## Testes ##
+############
+d_tr = dados[1,] # Primeira linha das temperaturas (base)
+
+# Treinando o y
+ytreino = dados * 0
+ytreino[1,] = d_tr
+
+for(i in 2:nrow(dados)){
+  for (j in 1:nrow(locs)) {
+    if(runif(1)<0.1){                # Se o ponto for escolhido (será transmitido)
+      d_tr[j] = dados[i,j]         # Atualiza os dados base (d_tr)
+    }
+  }
+  ytreino[i,]	= d_tr
+}
+
+# Plotando se
+plot(dados[,1],ytreino[,1])
+plot(dados[,15]) # Outliers
+plot(dados[,38])
+
 # Observações
 # - ResultT - Valores estranhos na coluna 39
+# - Colocar o K pra fora do trans_p
