@@ -237,15 +237,15 @@ rs9 = trans_p(0.9,pontos)
 #############################################################
 # Vetor de media dos erros médios
 m = c()
-m[1] = mean(erromedio(rs1, resultT))
-m[2] = mean(erromedio(rs2, resultT))
-m[3] = mean(erromedio(rs3, resultT))
-m[4] = mean(erromedio(rs4, resultT))
-m[5] = mean(erromedio(rs5, resultT))
-m[6] = mean(erromedio(rs6, resultT))
-m[7] = mean(erromedio(rs7, resultT))
-m[8] = mean(erromedio(rs8, resultT))
-m[9] = mean(erromedio(rs9, resultT))
+m[1] = mean(erromed(rs1, resultT))
+m[2] = mean(erromed(rs2, resultT))
+m[3] = mean(erromed(rs3, resultT))
+m[4] = mean(erromed(rs4, resultT))
+m[5] = mean(erromed(rs5, resultT))
+m[6] = mean(erromed(rs6, resultT))
+m[7] = mean(erromed(rs7, resultT))
+m[8] = mean(erromed(rs8, resultT))
+m[9] = mean(erromed(rs9, resultT))
 
 # Vetor de minimos dos erros minimos
 n = c()
@@ -273,20 +273,20 @@ o[9] = max(erromax(rs9, resultT))
 
 # Vetor de variancias dos erros médios
 v = c()
-v[1] = var(erromedio(rs1, resultT))
-v[2] = var(erromedio(rs2, resultT))
-v[3] = var(erromedio(rs3, resultT))
-v[4] = var(erromedio(rs4, resultT))
-v[5] = var(erromedio(rs5, resultT))
-v[6] = var(erromedio(rs6, resultT))
-v[7] = var(erromedio(rs7, resultT))
-v[8] = var(erromedio(rs8, resultT))
-v[9] = var(erromedio(rs9, resultT))
+v[1] = var(erromed(rs1, resultT))
+v[2] = var(erromed(rs2, resultT))
+v[3] = var(erromed(rs3, resultT))
+v[4] = var(erromed(rs4, resultT))
+v[5] = var(erromed(rs5, resultT))
+v[6] = var(erromed(rs6, resultT))
+v[7] = var(erromed(rs7, resultT))
+v[8] = var(erromed(rs8, resultT))
+v[9] = var(erromed(rs9, resultT))
 
 ##########################
 # Plotando os resultados #
 ##########################
-plot (m  , type="l", col="blue", ylim=c(0,24), xlab = "Probabilidade", ylab = "Erros" )
+plot (m  , type="l", col="blue", ylim=c(0,29), xlab = "Probabilidade", ylab = "Erros" )
 lines(n  , type="l", pch=10, col="Orange", xlab = "", ylab = "" ) # Erro Minimo
 lines(o  , type="l", pch=22, col="red"   , xlab = "", ylab = "" ) # Erro Maximo
 lines(m+v, type="l", pch=22, lty=2, col="black" , xlab = "", ylab = "" ) # Erro Medio
@@ -296,6 +296,7 @@ title("MEAN, MIN, MAX e VAR dos Erros Médios (Item D - RBF)")
 ############
 ## Testes ##
 ############
+
 d_tr = dados[1,] # Primeira linha das temperaturas (base)
 
 # Treinando o y
@@ -313,8 +314,28 @@ for(i in 2:nrow(dados)){
 
 # Plotando se
 plot(dados[,1],ytreino[,1])
-plot(dados[,15]) # Outliers
+plot(dados[,14]) # Outliers
 plot(dados[,38])
+
+i = 1
+j = 1
+Outliers = matrix(0, nrow = nrow(dados), ncol = ncol(dados))
+
+for (i in 1:nrow(dados)){
+  for (j in 1:ncol(dados)){
+    med = mean(dados[,j])
+    var =  var(dados[,j])
+    std = med - var
+    
+    print('Epoca: ')
+    print(j)
+    
+    if (dados[i,j] < std){
+      Outliers[i,j] = dados[i,j]
+      print(dados[i, j])
+    } 
+  }
+}
 
 # Observações
 # - ResultT - Valores estranhos na coluna 39
