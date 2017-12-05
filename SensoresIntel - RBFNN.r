@@ -312,31 +312,32 @@ for(i in 2:nrow(dados)){
   ytreino[i,]	= d_tr
 }
 
-# Plotando se
+# Plotando - Analises
 plot(dados[,1],ytreino[,1])
 plot(dados[,14]) # Outliers
-plot(dados[,38])
+plot(dados[,7])
+plot(dados[,39])
 
+# Outliers
 i = 1
 j = 1
-Outliers = matrix(0, nrow = nrow(dados), ncol = ncol(dados))
 
-for (i in 1:nrow(dados)){
-  for (j in 1:ncol(dados)){
+for (j in 1:ncol(dados)){
+  print('Epoca: ')
+  print(j)
+  
+  for (i in 1:nrow(dados)){
     med = mean(dados[,j])
     var =  var(dados[,j])
     std = med - var
     
-    print('Epoca: ')
-    print(j)
-    
     if (dados[i,j] < std){
-      Outliers[i,j] = dados[i,j]
+      #Outliers[i,j] = dados[i,j]
       print(dados[i, j])
     } 
   }
 }
 
 # Observações
-# - ResultT - Valores estranhos na coluna 39
 # - Colocar o K pra fora do trans_p
+# - Outliers - uma solução: Suavização exponencial
