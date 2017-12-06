@@ -323,7 +323,7 @@ plot(dados[,7])
 plot(dados[,39])
 
 # Dados reais ou tirando outliers (depende da entrada)
-plot(dados[1,],col="black",ylim=c(0,40), lty=1,lwd =1)
+plot(dados[1,],col="black",ylim=c(0,40), lty=5,lwd =1, xlab = "52 Sensores", ylab = "Temperaturas")
 i = 2
 while (i<=14400) {
   lines(dados[i,],col="orange",lty=5,lwd =1)
