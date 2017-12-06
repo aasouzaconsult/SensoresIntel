@@ -19,7 +19,8 @@ converte = function(dados) {
 
 # Importando os dados - já convertendo
 # Usaremos os dados pré-processados, disponíveis em http://www.ulb.ac.be/di/labo/code/PCAgExpe.zip.
-dados = converte(read.table("C:/temp/subsfin.txt"))	
+#dados = converte(read.table("C:/temp/subsfin.txt"))	
+dados = converte(read.table("C:/temp/subsfin_c.txt"))	
 locs  = converte(read.table("C:/temp/mote_locs.txt")[,2:3]) # Posicionamento do sensor
 locs  = locs[c(-5,-15),]
 
@@ -119,7 +120,7 @@ trans_p = function(p, pontos){
 
 # Teste da RBF
 teste_rbf = function(pontos, k, n_neuronios, w){
-  print("AH")
+ #print("AH")
   H        = matrix(1, nrow=nrow(pontos), ncol = n_neuronios+1) # 50X11 - 1 Bias
   means    = k$centers
   clusters = k$cluster
@@ -286,7 +287,7 @@ v[9] = var(erromed(rs9, resultT))
 ##########################
 # Plotando os resultados #
 ##########################
-plot (m  , type="l", col="blue", ylim=c(0,29), xlab = "Probabilidade", ylab = "Erros" )
+plot (m  , type="l", col="blue", ylim=c(0,13), xlab = "Probabilidade", ylab = "Erros" ) # c(0,29)
 lines(n  , type="l", pch=10, col="Orange", xlab = "", ylab = "" ) # Erro Minimo
 lines(o  , type="l", pch=22, col="red"   , xlab = "", ylab = "" ) # Erro Maximo
 lines(m+v, type="l", pch=22, lty=2, col="black" , xlab = "", ylab = "" ) # Erro Medio
@@ -303,20 +304,32 @@ d_tr = dados[1,] # Primeira linha das temperaturas (base)
 ytreino = dados * 0
 ytreino[1,] = d_tr
 
-for(i in 2:nrow(dados)){
+#p = 0 
+
+for(i in 2:nrow(dados[])){
   for (j in 1:nrow(locs)) {
-    if(runif(1)<0.1){                # Se o ponto for escolhido (será transmitido)
+    if(runif(1)<0.1){             # Se o ponto for escolhido (será transmitido)
       d_tr[j] = dados[i,j]         # Atualiza os dados base (d_tr)
+      #p = p+1
     }
   }
   ytreino[i,]	= d_tr
 }
 
 # Plotando - Analises
-plot(dados[,1],ytreino[,1])
+plot(dados[100,],ytreino[100,])
 plot(dados[,14]) # Outliers
 plot(dados[,7])
 plot(dados[,39])
+
+# Dados reais ou tirando outliers (depende da entrada)
+plot(dados[1,],col="black",ylim=c(0,40), lty=1,lwd =1)
+i = 2
+while (i<=14400) {
+  lines(dados[i,],col="orange",lty=5,lwd =1)
+  lines(ytreino[i,],col="red",lty=4,lwd =1)
+  i = i +1
+}
 
 # Outliers
 i = 1
