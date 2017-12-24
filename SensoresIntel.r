@@ -39,6 +39,9 @@ dados = converte(read.table("C:/temp/subsfin.txt"))
 locs  = converte(read.table("C:/temp/mote_locs.txt")[,2:3]) # Posicionamento do sensor
 locs  = locs[c(-5,-15),]
 
+# Dados da primeira época
+d_tr  = dados[1,]
+
 # Função para calcular o parâmetro de abertura com base nas 300 primeiras épocas
 estima_sigma = function(dados){
   sigma = c() # Vetor Sigma
@@ -124,7 +127,6 @@ coord[53:102,3] = result      # temperaturas previstas
 coord[1:52,4]   = 1           # Originais 
 coord[53:102,4] = 2           # 50 pontos - Previstos
 
-
 # Visão fixa dos pontos
 library(scatterplot3d)
 scatterplot3d(coord[,1:3],
@@ -136,6 +138,9 @@ scatterplot3d(coord[,1:3],
 #Gerando a superfície (Malha)
 library(akima)
 library(rgl)
+library(surface)
+library(plot3D)
+library(interp)
 shape = interp(locs[,1], locs[,2], dados_epoca,
                xo=seq(min(locs[,1]), max(locs[,1]), length=600), 
                yo=seq(min(locs[,2]), max(locs[,2]), length=600))
@@ -187,70 +192,42 @@ rgl.surface(shape$x,shape$y,shape$z, color = "orange", alpha=c(0.5))
 ############
 # Função da Regressão Linear
 reg_lin = function(i_tr, dados_epoca, nlocs){
-  result = array(0, dim = nrow(nlocs))       # array de 0 de nrow(nlocs) + 50 posições
+  result = array(0, dim = nrow(nlocs)) # array de 0 de nrow(nlocs) + 50 posições
   X = matrix(1, ncol = 3, nrow = nrow(locs)) # Matriz de 1´s (nrow(nlocs) linhas e 3 colunas)
-  #X[,1] é o bias  
+ #X[,1] é o bias
   X[,2] = locs[,1]
   X[,3] = locs[,2]    
   #...
-  # Faz a regressão apenas se teve mudanças (sensores a menos)
-  if(nrow(nlocs) != length(dados_epoca) || length(i_tr) != length(dados_epoca)){
-    x = X[i_tr,]	# pontos que foram escolhidos
-    lambda = 0.1	
-    I = diag(ncol(x)) # 3x3
-    
-    # Fórmula 3 (modelo linear com regularização)
-    v = solve(t(x)%*%x + lambda*I)%*%t(x)%*%dados_epoca[i_tr]
-    
-    # length(result), esse for vai preencher o vetor resultado...verificando se foi transmitido e copiando pro result, 
-    #e se não, estimando.    
-    for(i in 1:length(result)){
-      if(i %in% i_tr){  # Se tiver entre os "trasmitidos" na probabilidade (pega os dados da época)
-        result[i] = dados_epoca[i]
-      }
-      else{	# Senão, estima
-        # y = XB + e - Fórmula 4 (cálculo da estimação)
-        result[i] = (v[1,1] + v[2,1]*nlocs[i,1] + v[3,1]*nlocs[i,2])
-      }
-    }
-  }
-  else{
-    return (dados_epoca)
-  }
+  x = X
+  I = diag(ncol(X))
+  lambda = 0.1
+  v = solve(t(x)%*%x + lambda*I)%*%t(x)%*%i_tr 	# Fórmula 3 (modelo linear com regularização)
   
-  return (result) # Retorna as temperaturas estimadas (ponto não escolhido - probabilidade) e as reais dos pontos escolhidos
+  for(i in 1:length(result)){
+    # y = XB + e - Fórmula 4 (cálculo da estimação)
+    result[i] = (v[1,1] + v[2,1]*nlocs[i,1] + v[3,1]*nlocs[i,2])
+  }
+  return (result)
 }
 
 # Função para calcular a probabilidade (probabilidade de quem vai ou não transmitir)
 # Quanto maior a probabilidade, maior o numero de sensores (o "melhor")
-
 trans_p = function(p, pontos){
-  #matriz 14400 x 50 colunas(pontos gerados)
+  #matriz 14400 x 50 colunas(pontos gerados)  
   result = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
+  d_tr = dados[1,]
+  result[1,] = reg_lin(d_tr, dados[1,], pontos)
   
-  for(i in 1:nrow(dados)){
-    i_tr = c() # vetor de probabilidades usadas
-    count = 0
-    
-    for (j in 1:ncol(dados)) {
+  for(i in 2:nrow(dados)){
+    for (j in 1:nrow(pontos)) {
       if(runif(1)<p){ # Numero aleatório é menor que a probabilidade de entrada
-        count = count + 1
-        i_tr[count] = j
-      }
-      if(length(i_tr)<=1){ # numero baixo de sensores (probabilidades mais baixas)
-        i_tr = sample(1:52, 2)
+        d_tr[j] = dados[i,j]
       }
     }
-    
-    #print(length(i_tr))
-    
-    # Calcula a regressão Linear com base nos sensores escolhidos (50)
-    # Para cada Epoca i, retorna um vetor de 50 temperaturas (sensores escolhidos ou estimadas)
-    result[i,] = reg_lin(i_tr, dados[i,], pontos) 
+    result[i,] = reg_lin(d_tr, dados[i,], pontos)
   }
   return(result)
 }
-result
 
 # NRMSE - Erro máximo
 erromax = function(result, dados){
@@ -270,8 +247,6 @@ erromedio = function(result, dados){
   for(i in 1:nrow(result)){
     a = (dados[i,] - result[i,])^2
     rmse_epoca[i] = sqrt(sum(a))/ncol(result)
-   #a = sqrt((dados[i,] - result[i,])^2)
-   #rmse_epoca[i] = sum(a)/ncol(result)
   }
   return (rmse_epoca)
 }
@@ -336,6 +311,8 @@ for(i in 1:nrow(resultT)){
 summary(resultT)
 
 # Monta a regressão linear com probabilidade de 0.1 a 0.9 para as 50 temperaturas para cada época
+d_tr=dados[1,]
+
 rs1 = trans_p(0.1,pontos)	
 rs2 = trans_p(0.2,pontos)
 rs3 = trans_p(0.3,pontos)
@@ -360,32 +337,9 @@ rs9 = trans_p(0.9,pontos)
 #############
 ## TABELAS ##
 #############
-# Gerando dados para a Tabela Máximo
-max_matrix     = matrix(0, nrow = 9, ncol=10)
-max_matrix[1,] = min10(erromax(rs1, resultT))
-max_matrix[2,] = min10(erromax(rs2, resultT))
-max_matrix[3,] = min10(erromax(rs3, resultT))
-max_matrix[4,] = min10(erromax(rs4, resultT))
-max_matrix[5,] = min10(erromax(rs5, resultT))
-max_matrix[6,] = min10(erromax(rs6, resultT))
-max_matrix[7,] = min10(erromax(rs7, resultT))
-max_matrix[8,] = min10(erromax(rs8, resultT))
-max_matrix[9,] = min10(erromax(rs9, resultT))
-View(max_matrix)
-
-max_matrix     = matrix(0, nrow = 9, ncol=10)
-max_matrix[1,] = max10(erromax(rs1, resultT))
-max_matrix[2,] = max10(erromax(rs2, resultT))
-max_matrix[3,] = max10(erromax(rs3, resultT))
-max_matrix[4,] = max10(erromax(rs4, resultT))
-max_matrix[5,] = max10(erromax(rs5, resultT))
-max_matrix[6,] = max10(erromax(rs6, resultT))
-max_matrix[7,] = max10(erromax(rs7, resultT))
-max_matrix[8,] = max10(erromax(rs8, resultT))
-max_matrix[9,] = max10(erromax(rs9, resultT))
-View(max_matrix)
 
 # Gerando dados para a Tabela Médio
+# As épocas que apresentaram os 10 menores erros para cada probabilidade (linhas)
 med_matrix     = matrix(0, nrow = 9, ncol=10)
 med_matrix[1,] = min10(erromedio(rs1, resultT))
 med_matrix[2,] = min10(erromedio(rs2, resultT))
@@ -398,6 +352,7 @@ med_matrix[8,] = min10(erromedio(rs8, resultT))
 med_matrix[9,] = min10(erromedio(rs9, resultT))
 View(med_matrix)
 
+# As épocas que apresentaram os 10 maiores erros para cada probabilidade (linhas)
 med_matrix     = matrix(0, nrow = 9, ncol=10)
 med_matrix[1,] = max10(erromedio(rs1, resultT))
 med_matrix[2,] = max10(erromedio(rs2, resultT))
@@ -409,70 +364,6 @@ med_matrix[7,] = max10(erromedio(rs7, resultT))
 med_matrix[8,] = max10(erromedio(rs8, resultT))
 med_matrix[9,] = max10(erromedio(rs9, resultT))
 View(med_matrix)
-
-# Gerando dados para a Tabela Mínimo
-min_matrix     = matrix(0, nrow = 9, ncol=10)
-min_matrix[1,] = min10(erromin(rs1, resultT))
-min_matrix[2,] = min10(erromin(rs2, resultT))
-min_matrix[3,] = min10(erromin(rs3, resultT))
-min_matrix[4,] = min10(erromin(rs4, resultT))
-min_matrix[5,] = min10(erromin(rs5, resultT))
-min_matrix[6,] = min10(erromin(rs6, resultT))
-min_matrix[7,] = min10(erromin(rs7, resultT))
-min_matrix[8,] = min10(erromin(rs8, resultT))
-min_matrix[9,] = min10(erromin(rs9, resultT))
-View(min_matrix)
-
-min_matrix     = matrix(0, nrow = 9, ncol=10)
-min_matrix[1,] = max10(erromin(rs1, resultT))
-min_matrix[2,] = max10(erromin(rs2, resultT))
-min_matrix[3,] = max10(erromin(rs3, resultT))
-min_matrix[4,] = max10(erromin(rs4, resultT))
-min_matrix[5,] = max10(erromin(rs5, resultT))
-min_matrix[6,] = max10(erromin(rs6, resultT))
-min_matrix[7,] = max10(erromin(rs7, resultT))
-min_matrix[8,] = max10(erromin(rs8, resultT))
-min_matrix[9,] = max10(erromin(rs9, resultT))
-View(min_matrix)
-
-####################################
-## PLOTANDO ERROS TODAS AS EPOCAS ##
-####################################
-# Plotando os erros máximos
- plot(erromax(rs1, resultT), type="l", col="blue", ylim=c(0,400), xlab = "", ylab = "" )
-lines(erromax(rs2, resultT), type="l", pch=22, lty=2, col="yellow")
-lines(erromax(rs3, resultT), type="l", pch=22, lty=2, col="black")
-lines(erromax(rs4, resultT), type="l", pch=22, lty=2, col="red")
-lines(erromax(rs5, resultT), type="l", pch=22, lty=2, col="green")
-lines(erromax(rs6, resultT), type="l", pch=22, lty=2, col="pink")
-lines(erromax(rs7, resultT), type="l", pch=22, lty=2, col="orange")
-lines(erromax(rs8, resultT), type="l", pch=22, lty=2, col="gray")
-lines(erromax(rs9, resultT), type="l", pch=22, lty=2, col="brown")
-title("Plotando os erros máximos")
-
-# Plotando os erros médios
- plot(erromedio(rs1, resultT), type="l", col="blue", ylim=c(0,220), xlab = "", ylab = "" )
-lines(erromedio(rs2, resultT), type="l", pch=22, lty=2, col="yellow")
-lines(erromedio(rs3, resultT), type="l", pch=22, lty=2, col="black")
-lines(erromedio(rs4, resultT), type="l", pch=22, lty=2, col="red")
-lines(erromedio(rs5, resultT), type="l", pch=22, lty=2, col="green")
-lines(erromedio(rs6, resultT), type="l", pch=22, lty=2, col="pink")
-lines(erromedio(rs7, resultT), type="l", pch=22, lty=2, col="orange")
-lines(erromedio(rs8, resultT), type="l", pch=22, lty=2, col="gray")
-lines(erromedio(rs9, resultT), type="l", pch=22, lty=2, col="brown")
-title("Plotando os erros médios")
-
-# Plotando os erros mínimos
- plot(erromin(rs1, resultT), type="l", col="blue", ylim=c(0,3.5), xlab = "", ylab = "" )
-lines(erromin(rs2, resultT), type="l", pch=22, lty=2, col="yellow")
-lines(erromin(rs3, resultT), type="l", pch=22, lty=2, col="black")
-lines(erromin(rs4, resultT), type="l", pch=22, lty=2, col="red")
-lines(erromin(rs5, resultT), type="l", pch=22, lty=2, col="green")
-lines(erromin(rs6, resultT), type="l", pch=22, lty=2, col="pink")
-lines(erromin(rs7, resultT), type="l", pch=22, lty=2, col="orange")
-lines(erromin(rs8, resultT), type="l", pch=22, lty=2, col="gray")
-lines(erromin(rs9, resultT), type="l", pch=22, lty=2, col="brown")
-title("Plotando os erros mínimos")
 
 ########################################################
 ## GRAFICOS TOTAIS - MAX, MEAN e MIN dos Erros Médios ##
@@ -520,79 +411,49 @@ plot(n, type="l", col="blue", ylim=c(0,0.5), xlab = "", ylab = "" )
 title("Plotando os erros mínimos")
 
 #####################################################################
-plot(mx, type="l", col="red"  , ylim=c(0,180), xlab = "", ylab = "" )
+plot(mx, type="l", col="red"  , ylim=c(0,0.7), xlab = "", ylab = "" )
 lines(m, type="l", col="blue" , ylim=c(0,5)  , xlab = "", ylab = "" )
 lines(n, type="l", col="green", ylim=c(0,0.5), xlab = "", ylab = "" )
-title("Plotando os erros")
+title("Plotando os erros Médios")
 
-
-################################################################
-## GRAFICOS TOTAIS - MEAN dos Erros máximos, médios e mínimos ##
-################################################################
-# Máximo dos erros médios
-mx1 = c()
-mx1[1] = mean(erromax(rs1, resultT))
-mx1[2] = mean(erromax(rs2, resultT))
-mx1[3] = mean(erromax(rs3, resultT))
-mx1[4] = mean(erromax(rs4, resultT))
-mx1[5] = mean(erromax(rs5, resultT))
-mx1[6] = mean(erromax(rs6, resultT))
-mx1[7] = mean(erromax(rs7, resultT))
-mx1[8] = mean(erromax(rs8, resultT))
-mx1[9] = mean(erromax(rs9, resultT))
-plot(mx1, type="l", col="blue", ylim=c(0,30), xlab = "", ylab = "" )
-title("Plotando os erros max dos máximos")
-
+###########################
+## GRAFICOS Erros Médios ##
+###########################
 # Média dos erros médios
-m1 = c()
-m1[1] = mean(erromedio(rs1, resultT))
-m1[2] = mean(erromedio(rs2, resultT))
-m1[3] = mean(erromedio(rs3, resultT))
-m1[4] = mean(erromedio(rs4, resultT))
-m1[5] = mean(erromedio(rs5, resultT))
-m1[6] = mean(erromedio(rs6, resultT))
-m1[7] = mean(erromedio(rs7, resultT))
-m1[8] = mean(erromedio(rs8, resultT))
-m1[9] = mean(erromedio(rs9, resultT))
-plot(m1, type="l", col="blue", ylim=c(0,2.3), xlab = "", ylab = "" )
-title("Plotando os max dos erros médios")
-
-# Minimo dos erros médios
-n1 = c()
-n1[1] = mean(erromin(rs1, resultT))
-n1[2] = mean(erromin(rs2, resultT))
-n1[3] = mean(erromin(rs3, resultT))
-n1[4] = mean(erromin(rs4, resultT))
-n1[5] = mean(erromin(rs5, resultT))
-n1[6] = mean(erromin(rs6, resultT))
-n1[7] = mean(erromin(rs7, resultT))
-n1[8] = mean(erromin(rs8, resultT))
-n1[9] = mean(erromin(rs9, resultT))
-plot(n1, type="l", col="blue", ylim=c(0,1), xlab = "", ylab = "" )
-title("Plotando os max dos erros mínimos")
+m2 = c()
+m2[1] = mean(erromedio(rs1, resultT))
+m2[2] = mean(erromedio(rs2, resultT))
+m2[3] = mean(erromedio(rs3, resultT))
+m2[4] = mean(erromedio(rs4, resultT))
+m2[5] = mean(erromedio(rs5, resultT))
+m2[6] = mean(erromedio(rs6, resultT))
+m2[7] = mean(erromedio(rs7, resultT))
+m2[8] = mean(erromedio(rs8, resultT))
+m2[9] = mean(erromedio(rs9, resultT))
+plot(m2, type="l", col="blue", ylim=c(0,2.3), xlab = "", ylab = "" )
+title("Plotando os medios dos erros médios")
 
 # Variancia dos erros médios
-v1 = c()
-v1[1] = var(erromedio(rs1, resultT))
-v1[2] = var(erromedio(rs2, resultT))
-v1[3] = var(erromedio(rs3, resultT))
-v1[4] = var(erromedio(rs4, resultT))
-v1[5] = var(erromedio(rs5, resultT))
-v1[6] = var(erromedio(rs6, resultT))
-v1[7] = var(erromedio(rs7, resultT))
-v1[8] = var(erromedio(rs8, resultT))
-v1[9] = var(erromedio(rs9, resultT))
-plot(v1, type="l", col="blue", ylim=c(0,2.3), xlab = "", ylab = "" )
+v2 = c()
+v2[1] = var(erromedio(rs1, resultT))
+v2[2] = var(erromedio(rs2, resultT))
+v2[3] = var(erromedio(rs3, resultT))
+v2[4] = var(erromedio(rs4, resultT))
+v2[5] = var(erromedio(rs5, resultT))
+v2[6] = var(erromedio(rs6, resultT))
+v2[7] = var(erromedio(rs7, resultT))
+v2[8] = var(erromedio(rs8, resultT))
+v2[9] = var(erromedio(rs9, resultT))
+plot(v2, type="l", col="blue", ylim=c(0,2.3), xlab = "", ylab = "" )
 title("Plotando os max dos erros médios")
 
 #####################################################################
- plot(mx1  , type="l", col="red"  , ylim=c(0,15) , xlab = "", ylab = "" )
-lines(m1   , type="l", col="blue" , ylim=c(0,5)  , xlab = "", ylab = "" )
-lines(n1   , type="l", col="green", ylim=c(0,0.5), xlab = "", ylab = "" )
-lines(m1+v1, type="l", col="black", ylim=c(0,0.5), xlab = "", ylab = "", lty=2)
-lines(m1-v1, type="l", col="black", ylim=c(0,0.5), xlab = "", ylab = "", lty=2)
-title("Média dos Erros máximos, médios e mínimos (item b)")
-
+#                        Erro Médio                                 #
+#####################################################################
+plot(m2  , type="l", col="blue"  , ylim=c(0,0.2) , xlab = "", ylab = "" )
+lines(m2+v2, type="l", col="black", ylim=c(0,0.5), xlab = "", ylab = "", lty=2)
+lines(m2-v2, type="l", col="black", ylim=c(0,0.5), xlab = "", ylab = "", lty=2)
+title("Erro médio e variância (item b)")
 
 ###############################################################################
 # Repetir o item (b) utilizando regressão kernel gaussiano (Nadaraya-Watson). #
@@ -603,50 +464,45 @@ title("Média dos Erros máximos, médios e mínimos (item b)")
 ############
 
 # Funcao Kernel (Fórmula 2) - para o Nadaraya Watson
-kernel_gauss_nw = function(i_tr , dados_epoca, sigma, ponto){
-  
- #Ao inves de 52x - Agora replica pelo numero de sensores escolhidos
-  m_x = t(replicate(length(i_tr), ponto))
-  dst = (m_x - locs[i_tr,])^2
-  dst = sqrt(dst[,1]+dst[,2])
-  
-  pt1 = 1/(2*pi*(sigma[i_tr]^2))
-  pt2 = exp(-(dst/(2*(sigma[i_tr]^2)))) # sigma dos pontos escolhidos
-  result = pt1*pt2
-  
-  return(result)
+kernel_gauss_nw = function(i_tr , sigma, ponto){
+  #Ao inves de 52x - Agora replica pelo numero de sensores escolhidos	
+	m_x = t(replicate(length(i_tr), ponto))
+	dst = (m_x - locs)^2
+	dst = sqrt(dst[,1]+dst[,2])
+	
+	pt1 = 1/(2*pi*(sigma^2))
+	pt2 = exp(-(dst/(2*(sigma^2))))
+	result = pt1*pt2
+	
+	return(result)
 }
 
 # Função - Nadaraya Watson (Formula 1)
 nadaraya = function(i_tr, dados_epoca, sigma, ponto){	
-  # Mudou a funcao, para pegar informações dos sensores escolhidos
-  k = kernel_gauss_nw(i_tr, dados_epoca[i_tr], sigma, ponto) # saída = qtd num. de sensores escolhidos
-  return( (k%*%dados_epoca[i_tr])/sum(k) ) # saída = 1 temperatura ("ponto a ponto")
+	k = kernel_gauss_nw(i_tr, sigma, ponto) # saída = qtd num. de sensores escolhidos
+	return( (k%*%i_tr)/sum(k) ) # saída = 1 temperatura ("ponto a ponto")
 }
 
 # Função para calcular a probabilidade (probabilidade de quem vai ou não transmitir)
 # Quanto maior a probabilidade, maior o numero de sensores (o "melhor")
+
 trans_p_nw = function(p, pontos){
-  sigma = estima_sigma(dados)
-  result = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
-  for(i in 1:nrow(dados)){
-    i_tr = c()
-    count = 0
-    for(j in 1:nrow(pontos)) { # De cada época a probabilidade de cada ponto 
-      if(runif(1)<p){
-        count = count + 1
-        i_tr[count] = j
-      }
-    }
-    if(length(i_tr)<=1){
-      i_tr = sample(1:52, 2)
-    }
-    #print(i)
-    for(d in 1:nrow(pontos)){
-      result[i,d] = nadaraya(i_tr, dados[i,], sigma, pontos[d,]) # saida = 1 temperatura
-    }
-  }
-  return(result)
+	
+	result = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
+	for(i in 1:nrow(dados)){
+		for (j in 1:nrow(pontos)) { # De cada época a probabilidade de cada ponto
+			if(runif(1)<p){ 
+				d_tr[j] = dados[i,j]
+			}
+		}
+
+	#print(length(i_tr))
+	
+		for(d in 1:nrow(pontos)){
+			result[i,d] = nadaraya(d_tr, dados[i,], sigma, pontos[d,]) # saida = 1 temperatura
+		}
+	}
+	return(result)
 }
 
 ################
@@ -655,7 +511,7 @@ trans_p_nw = function(p, pontos){
 sigma  = estima_sigma(dados)
 pontos = gera_pontos(50) 
 
-# Chamada da função para estimar as temperaturas de cada época nos 50 pontos gerados s(ground truth)
+# Chamada da função para estimar as temperaturas de cada época nos 50 pontos gerados(ground truth)
 resultT2 = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
 for(i in 1:nrow(resultT2)){
   for(j in 1:ncol(resultT2)){
@@ -677,84 +533,53 @@ rs7 = trans_p_nw(0.7,pontos)
 rs8 = trans_p_nw(0.8,pontos)
 rs9 = trans_p_nw(0.9,pontos)
 
-#############################################################
-## GRAFICOS TOTAIS - MEAN, MIN, MAX e VAR dos Erros Médios ##
-#############################################################
-# Vetor de media dos erros médios
-m = c()
-m[1] = mean(erromedio(rs1, resultT2))
-m[2] = mean(erromedio(rs2, resultT2))
-m[3] = mean(erromedio(rs3, resultT2))
-m[4] = mean(erromedio(rs4, resultT2))
-m[5] = mean(erromedio(rs5, resultT2))
-m[6] = mean(erromedio(rs6, resultT2))
-m[7] = mean(erromedio(rs7, resultT2))
-m[8] = mean(erromedio(rs8, resultT2))
-m[9] = mean(erromedio(rs9, resultT2))
+#############
+## TABELAS ##
+#############
 
-# Vetor de minimos dos erros médios
-n = c()
-n[1] = min(erromedio(rs1, resultT2))
-n[2] = min(erromedio(rs2, resultT2))
-n[3] = min(erromedio(rs3, resultT2))
-n[4] = min(erromedio(rs4, resultT2))
-n[5] = min(erromedio(rs5, resultT2))
-n[6] = min(erromedio(rs6, resultT2))
-n[7] = min(erromedio(rs7, resultT2))
-n[8] = min(erromedio(rs8, resultT2))
-n[9] = min(erromedio(rs9, resultT2))
+# Gerando dados para a Tabela Médio
+# As épocas que apresentaram os 10 menores erros para cada probabilidade (linhas)
+med_matrix     = matrix(0, nrow = 9, ncol=10)
+med_matrix[1,] = min10(erromedio(rs1, resultT2))
+med_matrix[2,] = min10(erromedio(rs2, resultT2))
+med_matrix[3,] = min10(erromedio(rs3, resultT2))
+med_matrix[4,] = min10(erromedio(rs4, resultT2))
+med_matrix[5,] = min10(erromedio(rs5, resultT2))
+med_matrix[6,] = min10(erromedio(rs6, resultT2))
+med_matrix[7,] = min10(erromedio(rs7, resultT2))
+med_matrix[8,] = min10(erromedio(rs8, resultT2))
+med_matrix[9,] = min10(erromedio(rs9, resultT2))
+View(med_matrix)
 
-# Vetor de maximos dos erros médios
-o = c()
-o[1] = max(erromedio(rs1, resultT2))
-o[2] = max(erromedio(rs2, resultT2))
-o[3] = max(erromedio(rs3, resultT2))
-o[4] = max(erromedio(rs4, resultT2))
-o[5] = max(erromedio(rs5, resultT2))
-o[6] = max(erromedio(rs6, resultT2))
-o[7] = max(erromedio(rs7, resultT2))
-o[8] = max(erromedio(rs8, resultT2))
-o[9] = max(erromedio(rs9, resultT2))
+# As épocas que apresentaram os 10 maiores erros para cada probabilidade (linhas)
+med_matrix     = matrix(0, nrow = 9, ncol=10)
+med_matrix[1,] = max10(erromedio(rs1, resultT2))
+med_matrix[2,] = max10(erromedio(rs2, resultT2))
+med_matrix[3,] = max10(erromedio(rs3, resultT2))
+med_matrix[4,] = max10(erromedio(rs4, resultT2))
+med_matrix[5,] = max10(erromedio(rs5, resultT2))
+med_matrix[6,] = max10(erromedio(rs6, resultT2))
+med_matrix[7,] = max10(erromedio(rs7, resultT2))
+med_matrix[8,] = max10(erromedio(rs8, resultT2))
+med_matrix[9,] = max10(erromedio(rs9, resultT2))
+View(med_matrix)
 
-# Vetor de variancias dos erros médios
-v = c()
-v[1] = var(erromedio(rs1, resultT2))
-v[2] = var(erromedio(rs2, resultT2))
-v[3] = var(erromedio(rs3, resultT2))
-v[4] = var(erromedio(rs4, resultT2))
-v[5] = var(erromedio(rs5, resultT2))
-v[6] = var(erromedio(rs6, resultT2))
-v[7] = var(erromedio(rs7, resultT2))
-v[8] = var(erromedio(rs8, resultT2))
-v[9] = var(erromedio(rs9, resultT2))
-
-##########################
-# Plotando os resultados #
-##########################
-
- plot(m  , type="l", col="blue", ylim=c(0,2.1), xlab = "Probabilidade", ylab = "Erros" )
-lines(n  , type="l", pch=10, col="Orange", xlab = "", ylab = "" )
-lines(o  , type="l", pch=22, col="red"   , xlab = "", ylab = "" )
-lines(m+v, type="l", pch=22, lty=2, col="black" , xlab = "", ylab = "" )
-lines(m-v, type="l", pch=22, lty=2, col="black" , xlab = "", ylab = "" )
-title("MEAN, MIN, MAX e VAR dos Erros Médios (Item C)")
-
-####################################################################################
-## GRAFICOS TOTAIS - MEAN dos Erros Maximo, Medios e Minimos + Variancia do Medio ##
-####################################################################################
-# Vetor max dos erros maximos
+##########################################################################
+## GRAFICOS TOTAIS - MAX dos Erros Maximo, MED dos Medios e MIN Minimos ##
+##########################################################################
+# Vetor MAX dos erros maximos
 m2 = c()
-m2[1] = mean(erromax(rs1, resultT2))
-m2[2] = mean(erromax(rs2, resultT2))
-m2[3] = mean(erromax(rs3, resultT2))
-m2[4] = mean(erromax(rs4, resultT2))
-m2[5] = mean(erromax(rs5, resultT2))
-m2[6] = mean(erromax(rs6, resultT2))
-m2[7] = mean(erromax(rs7, resultT2))
-m2[8] = mean(erromax(rs8, resultT2))
-m2[9] = mean(erromax(rs9, resultT2))
+m2[1] = max(erromedio(rs1, resultT2))
+m2[2] = max(erromedio(rs2, resultT2))
+m2[3] = max(erromedio(rs3, resultT2))
+m2[4] = max(erromedio(rs4, resultT2))
+m2[5] = max(erromedio(rs5, resultT2))
+m2[6] = max(erromedio(rs6, resultT2))
+m2[7] = max(erromedio(rs7, resultT2))
+m2[8] = max(erromedio(rs8, resultT2))
+m2[9] = max(erromedio(rs9, resultT2))
 
-# Vetor max dos erros médios
+# Vetor MED dos erros médios
 n2 = c()
 n2[1] = mean(erromedio(rs1, resultT2))
 n2[2] = mean(erromedio(rs2, resultT2))
@@ -766,17 +591,17 @@ n2[7] = mean(erromedio(rs7, resultT2))
 n2[8] = mean(erromedio(rs8, resultT2))
 n2[9] = mean(erromedio(rs9, resultT2))
 
-# Vetor max dos erros minimos
+# Vetor MIN dos erros minimos
 o2 = c()
-o2[1] = mean(erromin(rs1, resultT2))
-o2[2] = mean(erromin(rs2, resultT2))
-o2[3] = mean(erromin(rs3, resultT2))
-o2[4] = mean(erromin(rs4, resultT2))
-o2[5] = mean(erromin(rs5, resultT2))
-o2[6] = mean(erromin(rs6, resultT2))
-o2[7] = mean(erromin(rs7, resultT2))
-o2[8] = mean(erromin(rs8, resultT2))
-o2[9] = mean(erromin(rs9, resultT2))
+o2[1] = min(erromedio(rs1, resultT2))
+o2[2] = min(erromedio(rs2, resultT2))
+o2[3] = min(erromedio(rs3, resultT2))
+o2[4] = min(erromedio(rs4, resultT2))
+o2[5] = min(erromedio(rs5, resultT2))
+o2[6] = min(erromedio(rs6, resultT2))
+o2[7] = min(erromedio(rs7, resultT2))
+o2[8] = min(erromedio(rs8, resultT2))
+o2[9] = min(erromedio(rs9, resultT2))
 
 # Vetor de variancias dos erros médios
 v2 = c()
@@ -793,9 +618,514 @@ v2[9] = var(erromedio(rs9, resultT2))
 ##########################
 # Plotando os resultados #
 ##########################
- plot(m2  , type="l" , pch=22, col="blue", ylim=c(0,5)  , xlab = "Probabilidade", ylab = "Erros" )
-lines(n2  , type="l" , pch=22, col="Orange", xlab = "", ylab = "" )
-lines(o2  , type="l" , pch=22, col="red"   , xlab = "", ylab = "" )
-lines(n2+v2, type="l", pch=22, col="black" , xlab = "", ylab = "", lty=2)
-lines(n2-v2, type="l", pch=22, col="black" , xlab = "", ylab = "", lty=2)
-title("MEAN dos Erros Máximos, Médios e Mínimos + Variância dos Médios (Item C)")
+ plot(m2  , type="l" , pch=22, col="red", ylim=c(0,1)  , xlab = "Probabilidade", ylab = "Erros" )
+lines(n2  , type="l" , pch=22, col="blue", xlab = "", ylab = "" )
+lines(o2  , type="l" , pch=22, col="green"   , xlab = "", ylab = "" )
+title("MAX dos Erros Máximos, MED dos Médios e MIN dos Mínimos (Item C)")
+
+###########################
+## GRAFICOS Erros Médios ##
+###########################
+# Vetor max dos erros médios
+n3 = c()
+n3[1] = mean(erromedio(rs1, resultT2))
+n3[2] = mean(erromedio(rs2, resultT2))
+n3[3] = mean(erromedio(rs3, resultT2))
+n3[4] = mean(erromedio(rs4, resultT2))
+n3[5] = mean(erromedio(rs5, resultT2))
+n3[6] = mean(erromedio(rs6, resultT2))
+n3[7] = mean(erromedio(rs7, resultT2))
+n3[8] = mean(erromedio(rs8, resultT2))
+n3[9] = mean(erromedio(rs9, resultT2))
+
+# Vetor de variancias dos erros médios
+v3 = c()
+v3[1] = var(erromedio(rs1, resultT2))
+v3[2] = var(erromedio(rs2, resultT2))
+v3[3] = var(erromedio(rs3, resultT2))
+v3[4] = var(erromedio(rs4, resultT2))
+v3[5] = var(erromedio(rs5, resultT2))
+v3[6] = var(erromedio(rs6, resultT2))
+v3[7] = var(erromedio(rs7, resultT2))
+v3[8] = var(erromedio(rs8, resultT2))
+v3[9] = var(erromedio(rs9, resultT2))
+
+############################
+# Plotando os Erros Médios #
+############################
+plot(n3  , type="l" , pch=22, col="blue", ylim=c(0,0.2)  , xlab = "Probabilidade", ylab = "Erros" )
+lines(n3+v3, type="l", pch=22, col="black" , xlab = "", ylab = "", lty=2)
+lines(n3-v3, type="l", pch=22, col="black" , xlab = "", ylab = "", lty=2)
+title("Erros médios + Variância (Item C)")
+
+############
+## ITEM D ##
+############
+
+#options(max.print=8.5E5) #Numero de linhas - retorno
+#options(error=recover)   #Debugar
+
+############################################################################################################
+# Sao 14400 epocas, cada epoca possue a medicao de temperatura de 52 sensores distribuidos no laboratorio. #
+# http://db.lcs.mit.edu/labdata/labdata.html                                                               #
+# http://www.stat.wisc.edu/~mchung/teaching/MIA/reading/diffusion.gaussian.kernel.pdf.pdf                  #
+############################################################################################################
+# Sensores Intel - RBFNN
+
+# Função para converter em numérico
+converte = function(dados) {
+  c<-NULL
+  for (i in 1:ncol(dados))
+    c<-cbind(c,as.numeric(dados[,i]))
+  
+  return (c)
+}
+
+# Importando os dados - já convertendo
+# Usaremos os dados pré-processados, disponíveis em http://www.ulb.ac.be/di/labo/code/PCAgExpe.zip.
+#dados = converte(read.table("C:/temp/subsfin.txt"))	
+dados = converte(read.table("C:/temp/subsfin_c.txt"))	
+locs  = converte(read.table("C:/temp/mote_locs.txt")[,2:3]) # Posicionamento do sensor
+locs  = locs[c(-5,-15),]
+
+d_tr=dados[1,]
+
+# Apenas 1 Épocas e 10 Sensores
+# Y = dados[1,1:10]
+# X  = locs[1:10,]
+
+# NRMSE - Erro máximo
+erromax = function(result, dados){
+  re2_max_ep = c()
+  for(i in 1:nrow(result)){
+    a = (dados[i,] - result[i,])^2
+    re2_max_ep[i] = max(sqrt(a))
+  }
+  return (re2_max_ep)
+}
+
+# NRMSE - Erro médio
+erromedio = function(result, dados){
+  rmse_epoca = c()
+  re2_min_ep = c()
+  re2_max_ep = c()
+  for(i in 1:nrow(result)){
+    a = (dados[i,] - result[i,])^2
+    rmse_epoca[i] = sqrt(sum(a))/ncol(result)
+  }
+  return (rmse_epoca)
+}
+
+# NRMSE - Erro mínimo
+erromin = function(result, dados){
+  rmse_epoca = c()
+  re2_min_ep = c()
+  re2_max_ep = c()
+  for(i in 1:nrow(result)){
+    a = (dados[i,] - result[i,])^2
+    re2_min_ep[i] = min(sqrt(a))
+  }
+  return (re2_min_ep)
+}
+
+# Função para reter os 10 NRMSEs máximos
+max10 = function(re2_max_ep){
+  res2 = re2_max_ep
+  
+  ind = c()
+  for(i in 1:10){
+    a = which.max(res2) # índice do maior valor
+    ind[i] = a
+    res2[a] = 0
+  }
+  return(ind)
+}
+
+# Função para reter os 10 NRMSEs mínimos
+min10 = function(re2_min_ep){
+  
+  res2 = re2_min_ep
+  
+  ind = c()
+  for(i in 1:10){
+    #a = which(mm == min(re2_min_ep), arr.ind = TRUE)
+    a = which.min(res2)
+    ind[i] = a
+    res2[a] = 1000
+  }
+  return(ind)
+}
+
+# Função para calcular a probabilidade (probabilidade de quem vai ou não transmitir)
+# Quanto maior a probabilidade, maior o numero de sensores que irão transmitir ("melhor")
+trans_p = function(p, pontos){
+  d_tr = dados[1,] # Primeira linha das temperaturas (base)
+  
+  result = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
+  #matriz 14400 x 50 colunas(pontos gerados)
+  
+  # Treinando o y
+  ytreino = dados * 0
+  ytreino[1,] = d_tr
+  
+  for(i in 2:nrow(dados)){
+    for (j in 1:nrow(locs)) {
+      if(runif(1)<p){                # Se o ponto for escolhido (será transmitido)
+        d_tr[j] = dados[i,j]         # Atualiza os dados base (d_tr)
+      }
+    }
+    ytreino[i,]	= d_tr
+  }
+  
+  k = kmeans(locs, 10)               # K-Means, com k = 10
+  
+  w = treino_rbf(ytreino, 10, k)     # Treinando
+  
+  a = teste_rbf(pontos, k, 10, w)    # Testando com base nos pontos gerados
+  
+  return(a)
+}
+
+# Teste da RBF
+teste_rbf = function(pontos, k, n_neuronios, w){
+  #print("AH")
+  H        = matrix(1, nrow=nrow(pontos), ncol = n_neuronios+1) # 50X11 - 1 Bias
+  means    = k$centers
+  clusters = k$cluster
+  v = array(0, c(2,2, n_neuronios))
+  for(i in 1:n_neuronios){
+    group = which(clusters %in% i) # Unir os do mesmo grupo
+    v[,,i] = var(locs[group,])	   # variancia do grupo
+  }
+  
+  for(i in 1:nrow(pontos)){
+    for(j in 1:n_neuronios){
+      sigma = diag(1,2)
+      diag(sigma) = diag(v[,,j])
+      #H[i,j+1] = exp(-(rowSums((locs[i,]-means)^2)/var%*%var))
+      H[i,j+1] = exp(-(t(pontos[i,]-means[j,]) %*% solve(sigma) %*% (pontos[i,]-means[j,])))
+    }
+  }
+  # yT
+  return(t(H%*%w))
+}
+
+# Treinamento da RBF
+treino_rbf = function(y, n_neuronios, k){	
+  H        = matrix(1, nrow=nrow(locs), ncol = n_neuronios+1) # Matriz de 1 - 52x11 (1 - Bias)
+  means    = k$centers
+  clusters = k$cluster
+  
+  # Variancia dos grupos  
+  v = array(0, c(2,2, n_neuronios))
+  for(i in 1:n_neuronios){
+    group = which(clusters %in% i)
+    v[,,i] = var(locs[group,])	
+  }
+  
+  # H
+  for(i in 1:nrow(locs)){
+    for(j in 1:n_neuronios){
+      #H[i,j+1] = exp(-(rowSums((locs[i,]-means)^2)/var%*%var))
+      sigma = diag(1,2)
+      diag(sigma) = diag(v[,,j])
+      #print(sigma)
+      H[i,j+1] = exp(-(t(locs[i,]-means[j,]) %*% solve(sigma) %*% (locs[i,]-means[j,])))
+    }
+  }
+  
+  # W
+  return(MASS::ginv(t(H)%*%H)%*%t(H)%*%t(y)) # 
+}
+
+# Gerar pontos (na area) para validacao
+gera_pontos = function(n){
+  pontos = matrix(0, nrow = n, ncol=2) # Cria matriz de 0 com N linhas e 2 colunas
+  # Gera n pontos entre o mínimo e o máximo de x(locs[,1]) e de y (locs[,2])
+  pontos[,1] = sample(min(locs[,1]):max(locs[,1]), n, replace = TRUE) 
+  pontos[,2] = sample(min(locs[,2]):max(locs[,2]), n, replace = TRUE) 	
+  return (pontos)
+}
+
+# Função para calcular o parâmetro de abertura com base nas 300 primeiras épocas
+estima_sigma = function(dados){
+  sigma = c()
+  g_t = dados[1:300,]
+  for(i in 1:ncol(dados)){
+    sigma[i] = sd(g_t[,i]) # Desvio Padrão para cada um dos 52 sensores (sd(dados[,1]))
+  }
+  return (sigma)
+}
+
+############
+# EXECUCAO #
+############
+sigma  = estima_sigma(dados)
+pontos = gera_pontos(50)
+
+# Funcao Kernel (Fórmula 2)
+kernel_gauss_gt = function(locs , x, sigma){
+  # transposto da repetição de cada um dos pontos gerados (Matriz - 52X2)
+  m_x = t(replicate(52, x))   # x é cada um dos pontos gerados
+  
+  # Distancia Euclidiana (eleva ao quadrado e depois tira a raiz - tirar os negativos)
+  dst = (m_x - locs)^2        # Distancia de cada ponto gerado para os originais (52)
+  dst = sqrt(dst[,1]+dst[,2]) # Raiz quadrada
+  
+  pt1 = 1/(2*pi*(sigma^2))
+  pt2 = exp(-(dst/(2*(sigma^2))))
+  result = pt1*pt2
+  
+  return(result)
+}
+
+# Chamada da função Kernel - para estimar as temperaturas nos 50 pontos gerados (ground truth)
+resultT = matrix(0, nrow = nrow(dados), ncol = nrow(pontos)) # 14400 X 50
+for(i in 1:nrow(resultT)){
+  for(j in 1:ncol(resultT)){
+    k = kernel_gauss_gt(locs, pontos[j,], sigma)  # Distancia Euclidiana
+    resultT[i,j] = (k%*%dados[i,])/sum(k)
+  }
+  print(i)
+}
+
+# Monta a RBF com probabilidade de 0.1 a 0.9 para as 50 temperaturas para cada época
+rs1 = trans_p(0.1,pontos)	
+rs2 = trans_p(0.2,pontos)
+rs3 = trans_p(0.3,pontos)
+rs4 = trans_p(0.4,pontos)
+rs5 = trans_p(0.5,pontos)
+rs6 = trans_p(0.6,pontos)
+rs7 = trans_p(0.7,pontos)
+rs8 = trans_p(0.8,pontos)
+rs9 = trans_p(0.9,pontos)
+
+#############
+## TABELAS ##
+#############
+
+# Gerando dados para a Tabela Médio
+# As épocas que apresentaram os 10 menores erros para cada probabilidade (linhas)
+med_matrix     = matrix(0, nrow = 9, ncol=10)
+med_matrix[1,] = min10(erromedio(rs1, resultT))
+med_matrix[2,] = min10(erromedio(rs2, resultT))
+med_matrix[3,] = min10(erromedio(rs3, resultT))
+med_matrix[4,] = min10(erromedio(rs4, resultT))
+med_matrix[5,] = min10(erromedio(rs5, resultT))
+med_matrix[6,] = min10(erromedio(rs6, resultT))
+med_matrix[7,] = min10(erromedio(rs7, resultT))
+med_matrix[8,] = min10(erromedio(rs8, resultT))
+med_matrix[9,] = min10(erromedio(rs9, resultT))
+View(med_matrix)
+
+# As épocas que apresentaram os 10 maiores erros para cada probabilidade (linhas)
+med_matrix     = matrix(0, nrow = 9, ncol=10)
+med_matrix[1,] = max10(erromedio(rs1, resultT))
+med_matrix[2,] = max10(erromedio(rs2, resultT))
+med_matrix[3,] = max10(erromedio(rs3, resultT))
+med_matrix[4,] = max10(erromedio(rs4, resultT))
+med_matrix[5,] = max10(erromedio(rs5, resultT))
+med_matrix[6,] = max10(erromedio(rs6, resultT))
+med_matrix[7,] = max10(erromedio(rs7, resultT))
+med_matrix[8,] = max10(erromedio(rs8, resultT))
+med_matrix[9,] = max10(erromedio(rs9, resultT))
+View(med_matrix)
+
+########################################################
+## GRAFICOS TOTAIS - MAX, MEAN e MIN dos Erros Médios ##
+########################################################
+# Máximo dos erros médios
+mx = c()
+mx[1] = max(erromedio(rs1, resultT))
+mx[2] = max(erromedio(rs2, resultT))
+mx[3] = max(erromedio(rs3, resultT))
+mx[4] = max(erromedio(rs4, resultT))
+mx[5] = max(erromedio(rs5, resultT))
+mx[6] = max(erromedio(rs6, resultT))
+mx[7] = max(erromedio(rs7, resultT))
+mx[8] = max(erromedio(rs8, resultT))
+mx[9] = max(erromedio(rs9, resultT))
+plot(mx, type="l", col="blue", ylim=c(0,180), xlab = "", ylab = "" )
+title("Plotando os erros máximos")
+
+# Média dos erros médios
+m = c()
+m[1] = mean(erromedio(rs1, resultT))
+m[2] = mean(erromedio(rs2, resultT))
+m[3] = mean(erromedio(rs3, resultT))
+m[4] = mean(erromedio(rs4, resultT))
+m[5] = mean(erromedio(rs5, resultT))
+m[6] = mean(erromedio(rs6, resultT))
+m[7] = mean(erromedio(rs7, resultT))
+m[8] = mean(erromedio(rs8, resultT))
+m[9] = mean(erromedio(rs9, resultT))
+plot(m, type="l", col="blue", ylim=c(0,5), xlab = "", ylab = "" )
+title("Plotando os erros médios")
+
+# Minimo dos erros médios
+n = c()
+n[1] = min(erromedio(rs1, resultT))
+n[2] = min(erromedio(rs2, resultT))
+n[3] = min(erromedio(rs3, resultT))
+n[4] = min(erromedio(rs4, resultT))
+n[5] = min(erromedio(rs5, resultT))
+n[6] = min(erromedio(rs6, resultT))
+n[7] = min(erromedio(rs7, resultT))
+n[8] = min(erromedio(rs8, resultT))
+n[9] = min(erromedio(rs9, resultT))
+plot(n, type="l", col="blue", ylim=c(0,0.5), xlab = "", ylab = "" )
+title("Plotando os erros mínimos")
+
+#####################################################################
+plot(mx, type="l", col="red"  , ylim=c(0,0.7), xlab = "", ylab = "" )
+lines(m, type="l", col="blue" , ylim=c(0,5)  , xlab = "", ylab = "" )
+lines(n, type="l", col="green", ylim=c(0,0.5), xlab = "", ylab = "" )
+title("Plotando os erros Médios")
+
+###########################
+## GRAFICOS Erros Médios ##
+###########################
+# Média dos erros médios
+m2 = c()
+m2[1] = mean(erromedio(rs1, resultT))
+m2[2] = mean(erromedio(rs2, resultT))
+m2[3] = mean(erromedio(rs3, resultT))
+m2[4] = mean(erromedio(rs4, resultT))
+m2[5] = mean(erromedio(rs5, resultT))
+m2[6] = mean(erromedio(rs6, resultT))
+m2[7] = mean(erromedio(rs7, resultT))
+m2[8] = mean(erromedio(rs8, resultT))
+m2[9] = mean(erromedio(rs9, resultT))
+plot(m2, type="l", col="blue", ylim=c(0,2.3), xlab = "", ylab = "" )
+title("Plotando os medios dos erros médios")
+
+# Variancia dos erros médios
+v2 = c()
+v2[1] = var(erromedio(rs1, resultT))
+v2[2] = var(erromedio(rs2, resultT))
+v2[3] = var(erromedio(rs3, resultT))
+v2[4] = var(erromedio(rs4, resultT))
+v2[5] = var(erromedio(rs5, resultT))
+v2[6] = var(erromedio(rs6, resultT))
+v2[7] = var(erromedio(rs7, resultT))
+v2[8] = var(erromedio(rs8, resultT))
+v2[9] = var(erromedio(rs9, resultT))
+plot(v2, type="l", col="blue", ylim=c(0,2.3), xlab = "", ylab = "" )
+title("Plotando os max dos erros médios")
+
+#####################################################################
+#                        Erro Médio                                 #
+#####################################################################
+plot(m2  , type="l", col="blue"  , ylim=c(0,0.25) , xlab = "", ylab = "" )
+lines(m2+v2, type="l", col="black", ylim=c(0,0.5), xlab = "", ylab = "", lty=2)
+lines(m2-v2, type="l", col="black", ylim=c(0,0.5), xlab = "", ylab = "", lty=2)
+title("Erro médio e variância (item d)")
+
+############
+## ITEM E ##
+############
+
+converte = function(dados) {
+ 	c<-NULL
+ 	for (i in 1:ncol(dados))
+		c<-cbind(c,as.numeric(dados[,i]))
+
+	return (c)
+}
+
+dados = converte(read.table("C:/temp/subsfin.txt"))	
+locs  = converte(read.table("C:/temp/mote_locs.txt")[,2:3]) # Posicionamento do sensor
+locs  = locs[c(-5,-15),]
+d_tr=dados[1,]
+pontosNew = converte(read.csv2("C:/temp/pontos1.csv", sep=';', dec='.'))
+
+gera_pontos = function(n){
+	pontos = matrix(0, nrow = n, ncol=2)
+	pontos[,1] = sample(min(locs[,1]):max(locs[,1]), n, replace = TRUE) 
+	pontos[,2] = sample(min(locs[,2]):max(locs[,2]), n, replace = TRUE) 	
+	return (pontos)
+}
+
+estima_sigma = function(dados){
+	sigma = c()
+	g_t = dados[1:300,]
+	for(i in 1:ncol(dados)){
+		sigma[i] = sd(g_t[,i])
+	}
+	return (sigma)
+}
+
+# Executando o Algoritmo
+sigma  = estima_sigma(dados) # Funcao ja descrita anteriormente
+pontos = gera_pontos(50)     # Funcao ja descrita anteriormente
+
+# Funcao Kernel (Fórmula 2)
+kernel_gauss_gt = function(locs , x, sigma){
+	
+	m_x = t(replicate(52, x))
+
+	dst = (m_x - locs)^2
+	dst = sqrt(dst[,1]+dst[,2])
+
+	pt1 = 1/(2*pi*(sigma^2))
+	pt2 = exp(-(dst/(2*(sigma^2))))
+	result = pt1*pt2
+		
+	return(result)
+}
+
+# Chamada da funcao para estimar as temperaturas de cada epoca nos 50 pontos gerados(ground truth)
+resultT = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
+for(i in 1:nrow(resultT)){
+	for(j in 1:ncol(resultT)){
+		k = kernel_gauss_gt(locs, pontos[j,], sigma)
+		resultT[i,j] = (k%*%dados[i,])/sum(k)
+	}
+	print(i)
+}
+
+# Importando a biblioteca GPFIT
+library('GPfit')
+library(lhs)
+
+# Função para calcular a probabilidade (probabilidade de quem vai ou não transmitir)
+# Quanto maior a probabilidade, maior o numero de sensores (o "melhor")
+# Processo Gaussiano
+trans_p = function(p, pontos){
+	d_tr = dados[1,]
+	result = matrix(0, nrow = nrow(dados), ncol = nrow(pontos))
+
+	ytreino = dados * 0
+	ytreino[1,] = d_tr
+	for(i in 2:nrow(dados)){
+		for (j in 1:nrow(locs)) {
+			if(runif(1)<p){
+				d_tr[j] = dados[i,j]
+			}
+		}
+		ytreino[i,]	= d_tr
+
+		GPmodel = GP_fit(locs,ytreino[i,]);
+
+		GPprediction = predict.GP(GPmodel,pontos);
+
+		result[i,] = GPprediction$Y_hat
+		print(i)
+	}
+	return(result)
+}
+
+pontos = pontosNew
+
+# Monta resultados com probabilidade de 0.1 a 0.9 para as 50 temperaturas para cada época
+rs1 = trans_p(0.1,pontos)	
+rs2 = trans_p(0.2,pontos)
+rs3 = trans_p(0.3,pontos)
+rs4 = trans_p(0.4,pontos)
+rs5 = trans_p(0.5,pontos)
+rs6 = trans_p(0.6,pontos)
+rs7 = trans_p(0.7,pontos)
+rs8 = trans_p(0.8,pontos)
+rs9 = trans_p(0.9,pontos)
+
+write.csv(rs4,"rs4.csv",row.names = FALSE)
