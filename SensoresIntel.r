@@ -242,11 +242,9 @@ erromax = function(result, dados){
 # NRMSE - Erro médio
 erromedio = function(result, dados){
   rmse_epoca = c()
-  re2_min_ep = c()
-  re2_max_ep = c()
   for(i in 1:nrow(result)){
     a = (dados[i,] - result[i,])^2
-    rmse_epoca[i] = sqrt(sum(a))/ncol(result)
+    rmse_epoca[i] = sqrt(mean(a))
   }
   return (rmse_epoca)
 }
@@ -707,11 +705,9 @@ erromax = function(result, dados){
 # NRMSE - Erro médio
 erromedio = function(result, dados){
   rmse_epoca = c()
-  re2_min_ep = c()
-  re2_max_ep = c()
   for(i in 1:nrow(result)){
     a = (dados[i,] - result[i,])^2
-    rmse_epoca[i] = sqrt(sum(a))/ncol(result)
+    rmse_epoca[i] = sqrt(mean(a))
   }
   return (rmse_epoca)
 }
